@@ -353,11 +353,24 @@ BROWSER_APPS = frozenset({
 })
 
 
+# Spans of one app separated by a brief gap still belong to a single
+# stretch: the foreground flickers to another app for a few seconds, or a
+# client uploads per-second fragments, and without bridging the gap the
+# app's whole day shatters into seconds-long pieces that can never win the
+# fused timeline. 60s is generous enough to heal that flicker but far
+# shorter than a real break between two separate sessions.
+MERGE_GAP_SECONDS = 60
+
+
 def _merged_spans(spans):
-    """Collapse overlapping or touching (start, end) spans, sorted."""
+    """Collapse overlapping, touching, or near-adjacent (start, end) spans, sorted.
+
+    Two spans merge when the later one starts no more than
+    ``MERGE_GAP_SECONDS`` after the earlier one ends.
+    """
     merged = []
     for start, end in sorted(spans):
-        if merged and start <= merged[-1][1]:
+        if merged and start <= merged[-1][1] + MERGE_GAP_SECONDS:
             merged[-1][1] = max(merged[-1][1], end)
         else:
             merged.append([start, end])

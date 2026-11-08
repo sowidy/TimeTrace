@@ -783,6 +783,53 @@ class TestWinnerTimeline(unittest.TestCase):
         self.assertEqual(timeline_segments({"apps": []}, [], [], DAY), ([], 0, 0))
         self.assertEqual(daily_winner_timeline({"apps": []}, [], [], DAY), "")
 
+    def test_merged_spans_bridges_small_gaps(self):
+        from mail.charts import _merged_spans
+        # Overlapping and touching still merge.
+        self.assertEqual(_merged_spans([(0, 60), (30, 90)]), [(0, 90)])
+        self.assertEqual(_merged_spans([(0, 60), (60, 120)]), [(0, 120)])
+        # A gap of 60s or less also merges: the foreground flickering to
+        # another app for a few seconds does not break the stretch.
+        self.assertEqual(_merged_spans([(0, 60), (120, 180)]), [(0, 180)])
+        # A gap over 60s is a real break between two sessions.
+        self.assertEqual(_merged_spans([(0, 60), (121, 180)]),
+                         [(0, 60), (121, 180)])
+        # Chained fragments with small gaps become one span.
+        self.assertEqual(
+            _merged_spans([(0, 10), (20, 30), (50, 70), (200, 210)]),
+            [(0, 70), (200, 210)])
+
+    def test_fragmented_app_wins_after_gap_bridging(self):
+        # Regression test for the 2026-11-07 dwrg case: dwrg ran 2h25m but
+        # only as 1-10s bursts with the foreground flickering to other
+        # apps, so its longest single span was under a minute and it never
+        # won the fused timeline against douyin's 24-minute run. With 60s
+        # gap bridging the bursts merge into one long run and dwrg wins.
+        from mail.charts import timeline_segments
+        summary = {"apps": [
+            {"app_name": "dwrg.exe", "display_name": "dwrg", "seconds": 8700},
+            {"app_name": "douyin.exe", "display_name": "抖音", "seconds": 1440}]}
+        # dwrg: 5s bursts from 12:30, 30s apart, until 13:06.
+        app_intervals = []
+        t = 12 * 3600 + 30 * 60
+        end = 13 * 3600 + 6 * 60
+        while t < end:
+            app_intervals.append({"day": str(DAY), "app_name": "dwrg.exe",
+                                  "start_second": t, "end_second": t + 5})
+            t += 35
+        # douyin: one 24-minute run overlapping dwrg.
+        app_intervals.append({"day": str(DAY), "app_name": "douyin.exe",
+                              "start_second": 12 * 3600 + 41 * 60,
+                              "end_second": 13 * 3600 + 5 * 60})
+        app_segments, first, last = timeline_segments(
+            summary, app_intervals, [], DAY)
+        # dwrg's bridged run (12:30-13:06, ~36 min) beats douyin's
+        # 24-minute run, so dwrg owns the whole stretch.
+        self.assertEqual((first, last), (12 * 3600 + 30 * 60, 13 * 3600 + 6 * 60 - 20))
+        self.assertEqual(app_segments, [
+            (12 * 3600 + 30 * 60, 13 * 3600 + 6 * 60 - 20, "dwrg.exe", "dwrg", []),
+        ])
+
 
 class TestGanttLabels(unittest.TestCase):
     def test_website_gantt_labels_show_chinese_and_markers(self):
