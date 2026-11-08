@@ -21,11 +21,14 @@ def trigger_daily_mail(
                          description="额外补发前几天（漏发时用）"),
     dry_run: bool = Query(False, description="只渲染不发送，用来检查内容"),
     user_key: str | None = Query(None, description="只给这一个设备发，忽略订阅开关"),
+    weekly: bool | None = Query(None, description="报告种类：true 发周报，false 发日报，不传按星期几默认（周日发周报）"),
 ):
     """手工触发报告邮件。
 
-    发的是日报还是周报，由 `day` 是星期几决定（默认周日发周报，覆盖
-    「以该天结尾的 7 天」）—— 这里只是把日期传下去，不区分种类。
+    日报和周报是两种模板，任何一天都可以套用任一种：weekly=true 发周报
+    （覆盖「以该天结尾的 7 天」），weekly=false 发当天日报，不传则按星期几
+    默认（周日发周报）。mail_log 按 (user_key, day, weekly) 去重，同一天
+    日报周报可以各发一封。
 
     两个用途：
         1. 外部 cron 定时（那就把 PCTIME_MAIL_SCHEDULER 关掉，免得
@@ -39,6 +42,7 @@ def trigger_daily_mail(
     """
     result = mail_sender.run(
         day=day, catchup_days=catchup, dry_run=dry_run, user_key=user_key,
+        weekly=weekly,
     )
     if result.get("reason") == "disabled":
         raise HTTPException(

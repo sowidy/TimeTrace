@@ -517,7 +517,7 @@ class TestRun(MailerTestCase):
 
     def test_tallies_each_outcome(self):
         # 覆盖四种结局：成功、已发过、无数据、发送失败
-        self.was_sent.side_effect = lambda uk, d: (uk, d) == (U1, YESTERDAY)
+        self.was_sent.side_effect = lambda uk, d, weekly=False: (uk, d) == (U1, YESTERDAY)
         self.get_summary.side_effect = (
             lambda uk, d: make_summary() if d == TODAY else None)
         self.get_range.side_effect = (
@@ -962,19 +962,30 @@ class TestReportKind(MailerTestCase):
         # 失败留痕，但 was_mail_sent 只认 sent —— 下一轮还会重试
         self.assertEqual(self.was_sent.call_count, 1)
 
-    def test_both_kinds_share_the_same_mail_log_key(self):
-        """日报和周报在 mail_log 上共用 (user_key, day)，键是「报告所属的那一天」。
+    def test_daily_and_weekly_use_different_mail_log_keys(self):
+        """日报和周报在 mail_log 上用不同的键 (user_key, day, weekly)。
 
-        所以周报记的是周日那天，而不是区间起点（周一）。这是不用给 mail_log
-        加 report_type 列的依据，见 server/mail/__init__.py。
+        所以同一天可以各发一封日报和周报：周报记的是周日那天（而不是区间
+        起点周一），weekly=True；日报 weekly=False。见 server/mail/__init__.py。
         """
         self._weekly_on(6)
 
         sender.send_day(U1, SUNDAY, email=MAIL1)
 
-        self.was_sent.assert_called_once_with(U1, SUNDAY)
+        self.was_sent.assert_called_once_with(U1, SUNDAY, weekly=True)
         self.assertEqual(self.record_mail.call_args[0][1], SUNDAY)
         self.assertEqual(self.record_mail.call_args[0][3], mail_log.MAIL_SENT)
+        self.assertTrue(self.record_mail.call_args[1]["weekly"])
+
+    def test_weekly_override_sends_daily_on_sunday(self):
+        """显式传 weekly=False 时，周日也能发日报（模板与星期几解耦）。"""
+        self._weekly_on(6)
+
+        out = sender.send_day(U1, SUNDAY, email=MAIL1, weekly=False)
+
+        self.assertFalse(out["weekly"])
+        self.was_sent.assert_called_once_with(U1, SUNDAY, weekly=False)
+        self.assertFalse(self.record_mail.call_args[1]["weekly"])
 
     def test_run_does_not_distinguish_kinds(self):
         """run() 只是按天循环，周日那天自然变周报 —— 外部 cron 因此不用改。"""

@@ -88,11 +88,13 @@ def send_mail(to, subject, text, html_body):
 
 
 def is_weekly_day(day):
-    """这一天该发周报吗。大小写/编号都跟着 date.weekday()：0=周一 … 6=周日。
+    """这一天默认该发周报吗。大小写/编号都跟着 date.weekday()：0=周一 … 6=周日。
 
-    报告种类**只由这一天的星期几决定** —— 不看数据库，也不看「是什么时候跑的」。
-    所以半夜补发某天时，补出来的还是那一天该有的那种报告；也因此 mail_log 的
-    UNIQUE KEY (user_key, day) 依然成立（见 mail/__init__.py 的论证）。
+    这只是**默认**：日报和周报是两种模板，调用方可以显式指定 weekly
+    覆盖它（见 send_day / send_merged_day 的 weekly 参数），任何一天都
+    可以发日报、也可以发周报。定时器不传 weekly，所以仍按星期几走
+    （周日发周报）；手工触发时传 weekly 就能指定种类。
+    mail_log 按 (user_key, day, weekly) 去重，同一天日报周报可以各发一封。
 
     刻意留成模块级的裸名函数（而不是把比较内联进 send_day），这样测试可以
     mock.patch.object(sender, "is_weekly_day") 直接指定种类，不必真的等到某个周日。
@@ -100,30 +102,30 @@ def is_weekly_day(day):
     return day.weekday() == config.MAIL_WEEKLY_DAY
 
 
-def send_day(user_key, day, email=None, dry_run=False, now=None):
+def send_day(user_key, day, email=None, dry_run=False, now=None, weekly=None):
     """给一个用户发某一天的报告。
 
-    发的是哪一种，由 day 是星期几决定（见 is_weekly_day）：**周报日发周报**
-    （覆盖「以这一天结尾的 7 天」的聚合），其余的日子发当天日报。
-    除了「取哪份数据」「用哪个渲染」这两步，别的检查两种报告完全一样 ——
-    跳过和失败的规则不是各写一遍。
+    发的是哪一种，由 weekly 参数决定：传 True 发周报（覆盖「以这一天结尾的
+    7 天」的聚合），传 False 发当天日报，不传则按星期几默认（见 is_weekly_day，
+    周报日发周报）。除了「取哪份数据」「用哪个渲染」这两步，别的检查两种报告
+    完全一样 —— 跳过和失败的规则不是各写一遍。
 
     返回一个 dict，不抛异常 —— 一个地址发失败不该让整轮发送中断。
         {"status": "sent"/"skipped"/"failed", "reason": ..., "day": ...,
          "user_key": ..., "email": ..., "subject": ..., "weekly": bool}
 
     跳过（skipped）的几种情况，reason 分别是：
-        already_sent  这天已经成功发过了（看 mail_log）
+        already_sent  这天这种报告已经成功发过了（看 mail_log）
         no_email      这个用户没有可用邮箱
         no_data       服务端没有这天的记录 —— 这天机器没开机，或者没上传；
                       周报则是整个区间一行记录都没有
         dry_run       只渲染不发送
     """
     day = day if isinstance(day, date) else date.fromisoformat(str(day))
-    weekly = is_weekly_day(day)
+    weekly = is_weekly_day(day) if weekly is None else bool(weekly)
     out = {"user_key": user_key, "day": day.isoformat(),"email": email or "", "subject": "", "weekly": weekly}
 
-    if mail_log.was_mail_sent(user_key, day):
+    if mail_log.was_mail_sent(user_key, day, weekly=weekly):
         return {**out, "status": "skipped", "reason": "already_sent"}
     if not email:
         return {**out, "status": "skipped", "reason": "no_email"}
@@ -201,14 +203,14 @@ def send_day(user_key, day, email=None, dry_run=False, now=None):
         detail = f"{type(e).__name__}: {e}"
         # 失败也留痕：用户来问「怎么没收到」时，这张表就是答案
         try:
-            mail_log.record_mail(user_key, day, email, mail_log.MAIL_FAILED,detail, now=now)
+            mail_log.record_mail(user_key, day, email, mail_log.MAIL_FAILED,detail, now=now, weekly=weekly)
         except Exception as log_err:             # noqa: BLE001
             log.warning("连失败记录都写不进去：%s", log_err)
         log.warning("%s发送失败 user=%s day=%s to=%s：%s","周报" if weekly else "日报", user_key, day, email, detail)
         return {**out, "status": "failed", "reason": detail}
 
     try:
-        mail_log.record_mail(user_key, day, email, mail_log.MAIL_SENT, subject,now=now)
+        mail_log.record_mail(user_key, day, email, mail_log.MAIL_SENT, subject,now=now, weekly=weekly)
     except Exception as e:                       # noqa: BLE001
         # 信已经发出去了，记录没写上。最坏结果是下次运行重发一封，
         # 比「明明发了却因为写记录失败而报错」要好。
@@ -219,7 +221,7 @@ def send_day(user_key, day, email=None, dry_run=False, now=None):
     return {**out, "status": "sent", "reason": ""}
 
 
-def send_merged_day(devices, day, email, dry_run=False, now=None):
+def send_merged_day(devices, day, email, dry_run=False, now=None, weekly=None):
     """Send one merged report for all devices sharing one mailbox.
 
     ``devices`` is a group from mail.merge.group_devices_by_email, earliest
@@ -233,14 +235,14 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
     rest of the round.
     """
     day = day if isinstance(day, date) else date.fromisoformat(str(day))
-    weekly = is_weekly_day(day)
+    weekly = is_weekly_day(day) if weekly is None else bool(weekly)
     anchor = devices[0]
     anchor_key = anchor["user_key"]
     email = mail_merge.normalize_email(email)
     out = {"user_key": anchor_key, "day": day.isoformat(), "email": email,
            "subject": "", "weekly": weekly, "merged_devices": len(devices)}
 
-    if mail_log.was_mail_sent(anchor_key, day):
+    if mail_log.was_mail_sent(anchor_key, day, weekly=weekly):
         return {**out, "status": "skipped", "reason": "already_sent"}
     if not email:
         return {**out, "status": "skipped", "reason": "no_email"}
@@ -366,7 +368,7 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
     except Exception as e:                       # noqa: BLE001
         detail = f"{type(e).__name__}: {e}{detail_suffix}"
         try:
-            mail_log.record_mail(anchor_key, day, email, mail_log.MAIL_FAILED, detail, now=now)
+            mail_log.record_mail(anchor_key, day, email, mail_log.MAIL_FAILED, detail, now=now, weekly=weekly)
         except Exception as log_err:             # noqa: BLE001
             log.warning("连失败记录都写不进去：%s", log_err)
         log.warning("%s合并发送失败 day=%s to=%s：%s", "周报" if weekly else "日报", day, email, detail)
@@ -374,7 +376,7 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
 
     try:
         mail_log.record_mail(anchor_key, day, email, mail_log.MAIL_SENT,
-                             subject + detail_suffix, now=now)
+                             subject + detail_suffix, now=now, weekly=weekly)
     except Exception as e:                       # noqa: BLE001
         log.warning("邮件已发出但记录失败 day=%s：%s", day, e)
 
@@ -383,13 +385,13 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
     return {**out, "status": "sent", "reason": ""}
 
 
-def run(day=None, catchup_days=0, dry_run=False, user_key=None, now=None):
+def run(day=None, catchup_days=0, dry_run=False, user_key=None, now=None, weekly=None):
     """给所有订阅用户发某一天的报告。
 
-    发的是日报还是周报，由每一天自己决定（见 is_weekly_day）—— 所以传进来的
-    日子里有周报日时，那一封就是周报，调用方不用区分。外部 cron 因此也完全
-    不用改：每天 00:03 照旧调 POST /api/v1/admin/daily-mail，默认会发送昨天；
-    昨天是周报日时自然生成周报。
+    发的是日报还是周报，由 weekly 参数决定：传 True 发周报，传 False 发日报，
+    不传则按星期几默认（见 is_weekly_day，周日发周报）。日报和周报是两种模板，
+    任何一天都可以套用任一种。外部 cron 不用改：每天 00:03 照旧调
+    POST /api/v1/admin/daily-mail，默认会发送昨天；昨天是周报日时自然生成周报。
 
     参数：
         day          发哪一天，默认昨天，保证默认路径只处理已经结束且留出
@@ -450,11 +452,13 @@ def run(day=None, catchup_days=0, dry_run=False, user_key=None, now=None):
                 outcome = send_day(
                     device["user_key"], d,
                     email=device.get("email"), dry_run=dry_run, now=now,
+                    weekly=weekly,
                 )
             else:
                 outcome = send_merged_day(
                     group["devices"], d,
                     email=group["email"], dry_run=dry_run, now=now,
+                    weekly=weekly,
                 )
             result[outcome["status"]] += 1
             result["results"].append(outcome)

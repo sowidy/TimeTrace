@@ -126,16 +126,17 @@ CREATE TABLE IF NOT EXISTS `mail_log` (
   `id`        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_key`  CHAR(36)        NOT NULL,
   `day`       DATE            NOT NULL COMMENT '报告是哪一天的',
+  `weekly`    TINYINT(1)      NOT NULL DEFAULT 0 COMMENT '0 日报 / 1 周报：同一天可以各发一封',
   `email`     VARCHAR(255)    NOT NULL DEFAULT '' COMMENT '实际发到了哪个地址',
   `status`    VARCHAR(16)     NOT NULL COMMENT 'sent 成功 / failed 失败',
   `detail`    VARCHAR(512)    NOT NULL DEFAULT '' COMMENT '成功时是主题, 失败时是错误信息',
   `sent_at`   DATETIME        NOT NULL COMMENT '最后一次尝试发送的时间',
   PRIMARY KEY (`id`),
-  -- 这个唯一键是「同一台设备的同一天只发一封」的硬保证。
+  -- 这个唯一键是「同一台设备的同一天同一种报告只发一封」的硬保证。
   -- mail/sender.py 发送前会先查一次, 但那个「查了再发」在进程重启、多 worker
   -- 或者手工触发和定时器撞车时都可能被插队, 所以最终靠数据库这条唯一键
   -- 兜底。失败会覆盖成 sent, 所以「失败重试成功」也只会留下最后一次。
-  UNIQUE KEY `uk_mail_user_day` (`user_key`, `day`),
+  UNIQUE KEY `uk_mail_user_day_weekly` (`user_key`, `day`, `weekly`),
   KEY `idx_mail_day` (`day`),
   CONSTRAINT `fk_mail_user` FOREIGN KEY (`user_key`)
       REFERENCES `users` (`user_key`) ON DELETE CASCADE
