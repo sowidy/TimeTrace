@@ -239,7 +239,7 @@ SMTP_USE_SSL = (
 
 # 发信人。留空就用 SMTP_USER（绝大多数邮箱要求这两者一致，否则被拒）。
 MAIL_FROM = _env("PCTIME_MAIL_FROM", "") or SMTP_USER
-MAIL_FROM_NAME = _env("PCTIME_MAIL_FROM_NAME", "PcTime 使用报告")
+MAIL_FROM_NAME = _env("PCTIME_MAIL_FROM_NAME", "TimeTrace 使用报告")
 
 # 配了 SMTP_HOST 才算启用。PCTIME_MAIL_ENABLED=0 可以强制关掉。
 MAIL_ENABLED = bool(SMTP_HOST and MAIL_FROM) and \

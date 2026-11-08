@@ -96,7 +96,7 @@ async def lifespan(_app):
 
 
 app = FastAPI(
-    title="PcTime 服务端",
+    title="TimeTrace 服务端",
     description="接收客户端上传的屏幕使用时间，并按用户区分存储。",
     version=SERVICE_VERSION,
     lifespan=lifespan,

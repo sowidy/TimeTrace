@@ -210,7 +210,7 @@ class TestSendMail(unittest.TestCase):
             "SMTP_USER": "sender@example.com",
             "SMTP_PASSWORD": "授权码",
             "MAIL_FROM": "sender@example.com",
-            "MAIL_FROM_NAME": "PcTime 使用报告",
+            "MAIL_FROM_NAME": "TimeTrace 使用报告",
         }
         base.update(overrides)
         return base
@@ -742,7 +742,7 @@ class TestBuildWeeklyMessage(unittest.TestCase):
     def test_subject_carries_the_range_and_the_total(self):
         subject = report.build_weekly_subject(SUNDAY, make_week_summary())
 
-        self.assertTrue(subject.startswith("【PcTime】"))
+        self.assertTrue(subject.startswith("【TimeTrace】"))
         self.assertIn("2026-10-12 ~ 2026-10-18", subject)
         self.assertIn("7 小时 30 分", subject)
         self.assertIn("周报", subject)
@@ -753,7 +753,7 @@ class TestBuildWeeklyMessage(unittest.TestCase):
         text = report.build_weekly_text(SUNDAY, make_week_summary(),
                                         {"hostname": "DESKTOP-ABC"})
 
-        self.assertIn("PcTime 每周使用报告", text)
+        self.assertIn("TimeTrace 每周使用报告", text)
         self.assertIn("周期：2026-10-12 ~ 2026-10-18（7 天，有数据 5 天）", text)
         self.assertIn("设备：DESKTOP-ABC", text)
         self.assertIn("总计：7 小时 30 分，共 3 个应用", text)
@@ -791,7 +791,7 @@ class TestBuildWeeklyMessage(unittest.TestCase):
         self.assertIn("DESKTOP-ABC", body)
         self.assertIn("PyCharm", body)
         # 页脚在 HTML 里是转义过的（原文含 <设备ID>）。
-        self.assertIn("PcTime 自动报告", body)
+        self.assertIn("TimeTrace 自动报告", body)
 
     def test_long_weekly_ranking_is_folded(self):
         with mock.patch.object(config, "MAIL_MAX_APPS", 2):

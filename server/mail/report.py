@@ -22,7 +22,7 @@ import config
 from mail.charts import application_chart
 
 FOOTER_TEXT = (
-    "PcTime 自动报告。退订：POST /api/v1/subscription/<设备ID>。"
+    "TimeTrace 自动报告。退订：POST /api/v1/subscription/<设备ID>。"
 )
 
 
@@ -42,7 +42,7 @@ def format_duration(seconds):
 
 def build_subject(day, summary):
     """日报主题。周报的主题在 build_weekly_subject。"""
-    return (f"【PcTime】{day.isoformat()} 使用报告 · "
+    return (f"【TimeTrace】{day.isoformat()} 使用报告 · "
             f"共 {format_duration(summary['total_seconds'])}")
 
 
@@ -195,7 +195,7 @@ def _html_shell(heading, totals_html, extra_html, rows):
     <html><head><meta charset="utf-8"></head>
     <body style="margin:0;padding:24px 12px;background:#f5f6f7;font-family:-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;">
         <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;">
-            <div style="color:#5f6368;font-size:13px;letter-spacing:1px;">PcTime</div>
+            <div style="color:#5f6368;font-size:13px;letter-spacing:1px;">TimeTrace</div>
             <div style="font-size:22px;font-weight:600;color:#202124;margin-top:6px;">
                 {heading}
             </div>
@@ -235,7 +235,7 @@ def build_text(day, summary, user=None):
     apps, hidden_count, hidden_seconds = _visible_apps(summary, config.MAIL_MAX_APPS)
 
     lines = [
-        "PcTime 每日使用报告",
+        "TimeTrace 每日使用报告",
         "=" * 24,
         "",
         f"日期：{day.isoformat()}",
@@ -279,7 +279,7 @@ def build_missing_app_message(day, user=None, weekly=False):
     period = f"{start} ~ {end}" if weekly else str(day)
     heading = f"{period} {'周报' if weekly else '使用报告'}"
     note = "应用汇总尚未收到，暂展示已收到的网站或时间线数据。"
-    return (f"【PcTime】{heading} · 应用汇总未收到",
+    return (f"【TimeTrace】{heading} · 应用汇总未收到",
             f"{heading}\n{note}\n\n{FOOTER_TEXT}",
             _html_shell(html.escape(heading), html.escape(note), _html_device_row(user), []))
 
@@ -289,7 +289,7 @@ def build_missing_app_message(day, user=None, weekly=False):
 def build_weekly_subject(day, summary):
     """周报主题。带上区间，收件箱里一眼就能和日报区分开。"""
     start, end = week_range(day)
-    return (f"【PcTime】{start.isoformat()} ~ {end.isoformat()} 周报 · "
+    return (f"【TimeTrace】{start.isoformat()} ~ {end.isoformat()} 周报 · "
             f"共 {format_duration(summary['total_seconds'])}")
 
 
@@ -304,7 +304,7 @@ def build_weekly_text(day, summary, user=None):
     apps, hidden_count, hidden_seconds = _visible_apps(summary, config.MAIL_MAX_APPS)
 
     lines = [
-        "PcTime 每周使用报告",
+        "TimeTrace 每周使用报告",
         "=" * 24,
         "",
         f"周期：{_period_line(start, end, summary)}",
