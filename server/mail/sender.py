@@ -323,6 +323,11 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
     # Overlap is measured only across different labels, per day.
     merged["_devices"], label_day_spans = mail_merge.dedupe_devices_by_label(
         merged["_devices"], app_intervals_by_device, devices)
+    # The count the mail reports is physical devices, not user_key rows: a
+    # phone reinstalled three times is still one phone. The deduped list
+    # above is the authority; the raw len(devices) in `out` was set before
+    # the dedup ran.
+    out["merged_devices"] = len(merged["_devices"])
     for day_key in range_days:
         overlap += mail_merge.compute_overlap_seconds(
             [spans.get(day_key, []) for spans in label_day_spans])
@@ -351,7 +356,7 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
         except Exception:
             log.warning("附加报告渲染失败，继续发送应用报告", exc_info=True)
     out["subject"] = subject
-    detail_suffix = f" · 合并 {len(devices)} 台设备"
+    detail_suffix = f" · 合并 {len(merged['_devices'])} 台设备"
 
     if dry_run:
         return {**out, "status": "skipped", "reason": "dry_run"}
@@ -374,7 +379,7 @@ def send_merged_day(devices, day, email, dry_run=False, now=None):
         log.warning("邮件已发出但记录失败 day=%s：%s", day, e)
 
     log.info("%s合并已发送 day=%s to=%s devices=%d",
-             "周报" if weekly else "日报", day, email, len(devices))
+             "周报" if weekly else "日报", day, email, len(merged["_devices"]))
     return {**out, "status": "sent", "reason": ""}
 
 

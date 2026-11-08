@@ -363,6 +363,25 @@ class TestSendMergedDay(MergedMailTestCase):
         self.assertEqual(args[0], U_PHONE)
         self.assertIn("合并 2 台设备", args[4])
 
+    def test_reinstalled_phone_counts_once(self):
+        # Regression test for 2026-11-08: one phone reinstalled three times
+        # registered as four user_keys under the same hostname, and the
+        # merged mail reported "合并 5 台设备" for one PC + one phone. The
+        # count must be physical devices (deduped by hostname + platform),
+        # not user_key rows.
+        self._summaries()
+        self._intervals([(0, 3600)], [(1800, 3600)])
+        devices = [device(U_PHONE, hostname="Pixel 8", platform="Android 14",
+                          created="2026-01-01 00:00:00"),
+                   device(U_PHONE2, hostname="Pixel 8", platform="Android 14",
+                          created="2026-01-02 00:00:00"),
+                   device(U_PC, created="2026-01-03 00:00:00")]
+        outcome = sender.send_merged_day(devices, DAY, MAIL)
+        self.assertEqual(outcome["status"], "sent")
+        self.assertEqual(outcome["merged_devices"], 2)
+        args = self.record_mail.call_args[0]
+        self.assertIn("合并 2 台设备", args[4])
+
     def test_no_overlap_means_plain_sum(self):
         self._summaries()
         self._intervals([(0, 1800)], [(3600, 5400)])
