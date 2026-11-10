@@ -65,6 +65,7 @@ EXPECTED_ROUTES = [
     ("GET", "/api/v1/web-intervals/{user_key}", "read_web_intervals"),
     ("GET", "/api/v1/app-timeline/{user_key}", "read_timeline"),
     ("GET", "/api/v1/app-intervals/{user_key}", "read_app_intervals"),
+    ("GET", "/api/v1/merged-timeline/{user_key}", "read_merged_timeline"),
 ]
 
 # 必须校验 X-Admin-Token 的接口。**故意不含** subscription：

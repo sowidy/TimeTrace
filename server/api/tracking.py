@@ -196,3 +196,96 @@ def read_app_intervals(user_key: UUID, start: date | None = None, end: date | No
     start, end = checked_range(start, end)
     return {"records": store.read_range("app_intervals", str(user_key), start, end),
             "readiness": store.readiness(str(user_key), start, end)}
+
+
+@router.get("/api/v1/merged-timeline/{user_key}")
+def read_merged_timeline(user_key: UUID, day: date | None = None,
+                         authorization: str = Header(default="")):
+    """One fused timeline for a day, across all devices sharing one mailbox.
+
+    The Android app pulls this to draw the merged Android + PC timeline:
+    segments follow the same winner rule as the daily mail (at any moment
+    the app whose current continuous segment is longest wins; a brief
+    pop-up on the other device never breaks the main app's segment).
+    When the mailbox has no computer data, only the phone's segments come
+    back — the app draws exactly what is here, no special-casing needed.
+
+    ``day`` defaults to yesterday (the last complete day). The caller
+    decides the display window: for today it draws up to the current time
+    and leaves the rest blank; for past days the segments already cover
+    the whole day.
+    """
+    authenticate(user_key, authorization)
+    target = day or (date.today() - timedelta(days=1))
+    me = users.get_user(str(user_key))
+    email = (me or {}).get("email") or ""
+    devices = []
+    if email:
+        with db_conn.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT user_key, hostname, platform, created_at FROM users"
+                    " WHERE email = %s ORDER BY created_at ASC",
+                    (email,),
+                )
+                devices = [dict(r) for r in cur.fetchall()]
+    if not devices:
+        devices = [me] if me else []
+    from db import tracking as track_store, usage_records
+    from mail import charts as mail_charts
+    from mail import merge as mail_merge
+
+    app_intervals, site_intervals = [], []
+    app_intervals_by_device = []
+    named_summaries = []
+    for device in devices:
+        key = str(device["user_key"])
+        try:
+            summary = usage_records.get_daily_summary(key, target)
+        except Exception:
+            summary = None
+        if summary:
+            named_summaries.append((mail_merge.device_label(device), summary))
+        try:
+            device_intervals = track_store.read_range(
+                "app_intervals", key, target, target)
+            app_intervals.extend(device_intervals)
+            app_intervals_by_device.append(device_intervals)
+            site_intervals.extend(track_store.read_range(
+                "web_intervals", key, target, target))
+        except Exception:
+            app_intervals_by_device.append([])
+    merged = mail_merge.merge_app_summaries(named_summaries)
+    summary = merged or {"total_seconds": 0, "app_count": 0, "apps": []}
+    segments, first, last = mail_charts.timeline_segments(
+        summary, app_intervals, site_intervals, target)
+    sources = mail_merge.sources_by_key(
+        (mail_merge.device_kind(d.get("platform")),
+         {r.get("app_name") for r in rows if r.get("app_name")})
+        for d, rows in zip(devices, app_intervals_by_device))
+    out_segments = []
+    for start, end, app_name, label, subs in segments:
+        out_segments.append({
+            "start_second": start,
+            "end_second": end,
+            "app_name": app_name,
+            "display_name": label,
+            "source": sources.get(app_name, "P"),
+            "sites": [
+                {"start_second": s, "end_second": e, "host": host,
+                 "display_name": site_label}
+                for s, e, host, site_label in subs
+            ],
+        })
+    return {
+        "day": target.isoformat(),
+        "devices": [
+            {"label": mail_merge.device_label(d),
+             "kind": mail_merge.device_kind(d.get("platform"))}
+            for d in devices
+        ],
+        "segments": out_segments,
+        "first_second": first,
+        "last_second": last,
+        "total_seconds": summary.get("total_seconds", 0),
+    }

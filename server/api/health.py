@@ -15,7 +15,7 @@ from db import conn as db_conn
 # 但它住在 api/health.py 里，如果它去 import app 取 app.version，就变成了
 # api.health → app，而 app 又必须 import api.health 才能把路由挂上去。
 # 拆成一个常量，两边都往下依赖它，环就断了。
-SERVICE_VERSION = "1.1.13"
+SERVICE_VERSION = "1.1.14"
 
 log = logging.getLogger("pctime")
 
@@ -49,6 +49,7 @@ def index():
             "GET /api/v1/web-intervals/{user_key}",
             "GET /api/v1/app-timeline/{user_key}",
             "GET /api/v1/app-intervals/{user_key}",
+            "GET /api/v1/merged-timeline/{user_key}",
         ],
         "docs": "/docs",
     }
