@@ -52,7 +52,7 @@ import logging
 from fastapi import FastAPI
 
 import config
-from api import admin_mail, health, upload, usage, users, tracking
+from api import admin_mail, app_update, health, upload, usage, users, tracking
 # 版本号在 api/health.py 里定义（index() 要报它，放这里会和 api.health 成环）
 from api.health import SERVICE_VERSION
 from db import conn as db_conn
@@ -115,3 +115,4 @@ app.include_router(users.router)       # GET  .../users                    GET  
                                        # POST .../subscription/{user_key}
 app.include_router(admin_mail.router)  # POST .../admin/daily-mail         GET  .../admin/mail-log
 app.include_router(tracking.router)
+app.include_router(app_update.router)  # GET  /api/v1/app-version          GET  /api/v1/app-download
