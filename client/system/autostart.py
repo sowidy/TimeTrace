@@ -40,7 +40,7 @@ def is_autostart_enabled() -> bool:
     try:
         # winreg 的 key 对象支持 with 语法，退出时会自动关闭句柄
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, KEY_PATH, 0, winreg.KEY_READ) as key:
-            for name in (APP_NAME, _LEGACY_APP_NAME):
+            for name in (APP_NAME, *_LEGACY_APP_NAMES):
                 try:
                     winreg.QueryValueEx(key, name)
                     return True

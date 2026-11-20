@@ -15,6 +15,21 @@ from system import autostart
 
 
 class AutostartTests(unittest.TestCase):
+    def test_is_enabled_for_current_or_legacy_entry(self):
+        registry_key = MagicMock()
+        registry_key.__enter__.return_value = registry_key
+
+        for present_name in ("TimeTrace", "PcTime", "UsageTracker"):
+            with self.subTest(present_name=present_name):
+                def query_value(key, name):
+                    if name != present_name:
+                        raise FileNotFoundError(name)
+                    return ('"C:/Apps/TimeTrace.exe"', 1)
+
+                with patch.object(autostart.winreg, "OpenKey", return_value=registry_key), \
+                        patch.object(autostart.winreg, "QueryValueEx", side_effect=query_value):
+                    self.assertTrue(autostart.is_autostart_enabled())
+
     def test_enable_replaces_legacy_startup_entry(self):
         registry_key = MagicMock()
         registry_key.__enter__.return_value = registry_key
