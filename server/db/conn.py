@@ -170,7 +170,7 @@ def check_schema():
             found = {row["TABLE_NAME"] for row in cur.fetchall()}
     missing = REQUIRED_TABLES - found
     if missing:
-        raise RuntimeError("数据库缺少表：%s；请用建表账号设置 PCTIME_DB_INIT_SCHEMA=1 初始化"
+        raise RuntimeError("数据库缺少表：%s；请用建表账号设置 TIMETRACE_DB_INIT_SCHEMA=1 初始化"
                            % ", ".join(sorted(missing)))
 
 

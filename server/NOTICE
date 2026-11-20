@@ -1,12 +1,12 @@
-PcTime
-https://github.com/sowidy/PcTime
+TimeTrace
+https://github.com/sowidy/TimeTrace
 
 The desktop client is derived from DABIAN-afk/usagetime:
 https://github.com/DABIAN-afk/usagetime
 The upstream README declares MIT. No standalone upstream license file or
 copyright notice was found at the reviewed revision. The recorded declaration
 and its limitations are in licenses/DABIAN-afk-usagetime-NOTICE.txt.
-The PcTime copyright notice does not replace the upstream authors' rights.
+The TimeTrace copyright notice does not replace the upstream authors' rights.
 
 The browser/desktop website-tracking design references Planshit/Tai:
 https://github.com/Planshit/Tai

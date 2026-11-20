@@ -1,0 +1,18 @@
+[Unit]
+Description=TimeTrace usage collection API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=timetrace
+Group=timetrace
+WorkingDirectory=/opt/projects/TimeTrace/server
+ExecStart=/opt/projects/TimeTrace/.venv/bin/python /opt/projects/TimeTrace/server/run.py
+Environment=TZ=Asia/Shanghai
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

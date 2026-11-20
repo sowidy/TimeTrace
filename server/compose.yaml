@@ -5,9 +5,9 @@ services:
     image: mysql:8.0
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: "yes"
-      MYSQL_DATABASE: ${PCTIME_DB_NAME:-pctime}
-      MYSQL_USER: ${PCTIME_DB_USER:-pctime}
-      MYSQL_PASSWORD: ${PCTIME_DB_PASSWORD:?Set PCTIME_DB_PASSWORD in server/.env}
+      MYSQL_DATABASE: ${TIMETRACE_DB_NAME:-timetrace}
+      MYSQL_USER: ${TIMETRACE_DB_USER:-timetrace}
+      MYSQL_PASSWORD: ${TIMETRACE_DB_PASSWORD:?Set TIMETRACE_DB_PASSWORD in server/.env}
       TZ: Asia/Shanghai
     volumes:
       - mysql-data:/var/lib/mysql
@@ -21,16 +21,16 @@ services:
     build: .
     env_file: .env
     environment:
-      PCTIME_DB_HOST: db
-      PCTIME_DB_PORT: "3306"
-      PCTIME_DB_USER: ${PCTIME_DB_USER:-pctime}
-      PCTIME_DB_NAME: ${PCTIME_DB_NAME:-pctime}
-      PCTIME_DB_INIT_SCHEMA: "1"
-      PCTIME_HOST: 0.0.0.0
-      PCTIME_PORT: "8000"
+      TIMETRACE_DB_HOST: db
+      TIMETRACE_DB_PORT: "3306"
+      TIMETRACE_DB_USER: ${TIMETRACE_DB_USER:-timetrace}
+      TIMETRACE_DB_NAME: ${TIMETRACE_DB_NAME:-timetrace}
+      TIMETRACE_DB_INIT_SCHEMA: "1"
+      TIMETRACE_HOST: 0.0.0.0
+      TIMETRACE_PORT: "8000"
       TZ: Asia/Shanghai
     ports:
-      - "${PCTIME_PUBLISH_HOST:-127.0.0.1}:${PCTIME_PORT:-8000}:8000"
+      - "${TIMETRACE_PUBLISH_HOST:-127.0.0.1}:${TIMETRACE_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy

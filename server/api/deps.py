@@ -23,7 +23,7 @@ def require_admin(x_admin_token: str = Header(default="")):
     if not config.ADMIN_TOKEN:
         raise HTTPException(
             status_code=403,
-            detail="管理接口未启用：服务端没有设置 PCTIME_ADMIN_TOKEN",
+            detail="管理接口未启用：服务端没有设置 TIMETRACE_ADMIN_TOKEN",
         )
     if not hmac.compare_digest(x_admin_token, config.ADMIN_TOKEN):
         raise HTTPException(status_code=401, detail="X-Admin-Token 不正确")

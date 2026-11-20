@@ -31,7 +31,7 @@ def trigger_daily_mail(
     日报周报可以各发一封。
 
     两个用途：
-        1. 外部 cron 定时（那就把 PCTIME_MAIL_SCHEDULER 关掉，免得
+        1. 外部 cron 定时（那就把 TIMETRACE_MAIL_SCHEDULER 关掉，免得
            进程内定时器和 cron 重复发）。cron 不需要知道周报这回事：
            每天 00:03 调用即可；默认发送昨天，昨天是周报日时自然生成周报。
         2. 排查问题：dry_run=true 先看看内容长什么样，再决定要不要真发。
@@ -47,7 +47,7 @@ def trigger_daily_mail(
     if result.get("reason") == "disabled":
         raise HTTPException(
             status_code=503,
-            detail="服务端没有配置 SMTP（需要 PCTIME_SMTP_HOST 和 MAIL_FROM）",
+            detail="服务端没有配置 SMTP（需要 TIMETRACE_SMTP_HOST 和 MAIL_FROM）",
         )
     if result.get("reason") == "no_such_user":
         raise HTTPException(status_code=404, detail="没有这个 user_key")

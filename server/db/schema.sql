@@ -1,13 +1,13 @@
--- PcTime 服务端表结构（旧库名仍可通过环境变量接入）
+-- TimeTrace 服务端表结构（旧库名仍可通过环境变量接入）
 --
 -- 这份文件是**唯一的表结构定义**：服务端启动时会读它来自动建表
 -- （见 db/conn.py 的 init_schema），所以改了这里就等于改了自动建表行为，
 -- 不需要再去改 Python 代码。
 --
 -- 也可以手工执行：
---     mysql -h 127.0.0.1 -u root -p pctime < schema.sql
+--     mysql -h 127.0.0.1 -u root -p timetrace < schema.sql
 -- 注意要先自己建库（本文件不含 CREATE DATABASE，因为库名是可配置的）：
---     CREATE DATABASE pctime DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+--     CREATE DATABASE timetrace DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 --
 -- 所有语句都是 IF NOT EXISTS，重复执行不会报错、也不会动已有数据。
 --

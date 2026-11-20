@@ -42,7 +42,7 @@ OpenAPI 文档内容，而这次重构的验收标准就是「文档逐字节不
     或者加一层邮箱验证码换 token。现在这版是「基本可用」，够用但不该
     当成最终形态。
 
-    管理接口（/users、/admin/*）走另一条路：要有 PCTIME_ADMIN_TOKEN
+    管理接口（/users、/admin/*）走另一条路：要有 TIMETRACE_ADMIN_TOKEN
     环境变量才能用，没设就直接 403。校验在 api/deps.py 的 require_admin。
 """
 import asyncio
@@ -62,7 +62,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-log = logging.getLogger("pctime")
+log = logging.getLogger("timetrace")
 
 
 # ── 应用生命周期 ──────────────────────────────────────────────

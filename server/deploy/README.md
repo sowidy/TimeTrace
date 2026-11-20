@@ -7,7 +7,7 @@
 ## Linux / 宝塔使用现有 MySQL
 
 ```bash
-cd /opt/projects/PcTime
+cd /opt/projects/TimeTrace
 python3 -m venv .venv                     # 已有虚拟环境可跳过
 .venv/bin/python -m pip install -r server/requirements.txt
 # 只在首次安装复制模板；升级时保留现有 server/.env。
@@ -19,12 +19,12 @@ test -f server/.env || cp server/.env.example server/.env
 ```
 
 仅复制 `server/` 时，也可在该文件夹里创建虚拟环境，执行 `python check.py`、
-`python run.py`。入口读取 `.env` 的 `PCTIME_HOST` / `PCTIME_PORT`，与启动时
+`python run.py`。入口读取 `.env` 的 `TIMETRACE_HOST` / `TIMETRACE_PORT`，与启动时
 工作目录无关。使用一个 worker，避免邮件定时器被多个 worker 同时启动。
 
-宝塔可使用项目目录 `/opt/projects/PcTime/server`、启动文件 `run.py`、原虚拟环境；
+宝塔可使用项目目录 `/opt/projects/TimeTrace/server`、启动文件 `run.py`、原虚拟环境；
 若原项目配置的是 ASGI，则继续用 `app:app`。两种方式选一种。
-`pctime.service.example` 是可选 systemd 模板，需先创建其中配置的用户并授予项目
+`timetrace.service.example` 是可选 systemd 模板，需先创建其中配置的用户并授予项目
 读取权限，不要与宝塔重复托管同一端口。
 
 MySQL 建表账号需本库建表权限，首次自动建齐 10 张表。新表显式使用 InnoDB/utf8mb4；
@@ -36,7 +36,7 @@ MySQL 建表账号需本库建表权限，首次自动建齐 10 张表。新表�
 已有客户端只上传每日汇总时，报告会明确标记分时数据缺失。升级客户端后会自动重传最近 14 天本地记录；
 更早日期若没有分时记录，仍显示为缺失，不会由每日总量推算。
 先升级服务端、确认 `website_intervals` 与 `app_timeline_intervals` 表已建好，再升级客户端。旧服务端拒绝新上传字段，客户端会保留本地数据并在下次运行时重试。
-已有数据库不再执行建库语句。初始化后可设 `PCTIME_DB_INIT_SCHEMA=0`，切换到仅
+已有数据库不再执行建库语句。初始化后可设 `TIMETRACE_DB_INIT_SCHEMA=0`，切换到仅
 SELECT/INSERT/UPDATE/DELETE 的账号；此模式仍检查缺表，不会把缺表问题留到上传时。
 
 ## 更新已有服务器
@@ -45,9 +45,9 @@ SELECT/INSERT/UPDATE/DELETE 的账号；此模式仍检查缺表，不会把缺�
 若有上次部署的兼容补丁，先保存差异并逐项核对；不要强制覆盖配置或补丁。
 工作区干净后：
 
-旧 `server/.env` 的 `USAGETIME_*` 键仍可用；新 `PCTIME_*` 同名键优先。不要因改名而
+旧 `server/.env` 的 `USAGETIME_*` 键仍可用；新 `TIMETRACE_*` 同名键优先。不要因改名而
 新建空数据库：已有生产库名或账号若仍为 `usagetime`，继续把
-`PCTIME_DB_NAME=usagetime` / `PCTIME_DB_USER=usagetime` 指向它，核对后再重启。
+`TIMETRACE_DB_NAME=usagetime` / `TIMETRACE_DB_USER=usagetime` 指向它，核对后再重启。
 
 ```bash
 git pull --ff-only origin main
@@ -66,13 +66,13 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 
 ## Docker（可选）
 
-在 `server/` 下复制 `.env.example` 为 `.env`，填写 `PCTIME_DB_PASSWORD`，运行
+在 `server/` 下复制 `.env.example` 为 `.env`，填写 `TIMETRACE_DB_PASSWORD`，运行
 `docker compose up -d --build`。此栈启动独立 MySQL，数据保存在命名卷，不发布数据库
 端口；API 默认发布到 127.0.0.1:8000，可交给反向代理。需局域网直连时，在 `.env`
-设置 `PCTIME_PUBLISH_HOST=0.0.0.0`。这不会自动迁移宝塔现有数据库。
+设置 `TIMETRACE_PUBLISH_HOST=0.0.0.0`。这不会自动迁移宝塔现有数据库。
 旧 Docker Compose 数据卷升级时，先备份卷和 `.env`，将旧库名、用户名、密码明确写成
-`PCTIME_DB_NAME`、`PCTIME_DB_USER`、`PCTIME_DB_PASSWORD`；否则新默认值 `pctime`
-可能指向空库。`PCTIME_*` 是 Compose 模板插值所需，不仅是 Python 进程的配置回退。
+`TIMETRACE_DB_NAME`、`TIMETRACE_DB_USER`、`TIMETRACE_DB_PASSWORD`；否则新默认值 `timetrace`
+可能指向空库。`TIMETRACE_*` 是 Compose 模板插值所需，不仅是 Python 进程的配置回退。
 关闭时保留数据卷，勿用 `down -v` 删除数据。
 
 ## 客户端连接与验收
@@ -80,8 +80,8 @@ curl --fail http://127.0.0.1:8000/api/v1/health
 客户端程序旁 `.env`：
 
 ```dotenv
-PCTIME_SERVER_URL=http://服务器IP:8000
-PCTIME_UPLOAD_CHECK_INTERVAL=60
+TIMETRACE_SERVER_URL=http://服务器IP:8000
+TIMETRACE_UPLOAD_CHECK_INTERVAL=60
 ```
 
 完整 URL 不要包含 `/api/v1`。应用汇总、网站与应用时段上传都支持配置的 HTTP 或
@@ -116,7 +116,7 @@ Docker 模板已设置该时区。
 python server/tools/verify_mysql.py --mysqld /path/to/mysqld
 # 可选：加入真实客户端的离线记录、恢复补传和额外数据序列化验证。
 python server/tools/verify_mysql.py --mysqld /path/to/mysqld --client client
-python server/tools/package.py --output artifacts/release/pctime-server.zip
+python server/tools/package.py --output artifacts/release/timetrace-server.zip
 ```
 
 覆盖：server-only 启动、上传鉴权、幂等、读回、重复建表、新库默认 latin1、旧用户表

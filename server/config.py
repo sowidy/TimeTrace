@@ -8,9 +8,9 @@
 
 所以日常改配置**改 `.env` 就够了**，不用碰代码，也不用每次启动都带一长串 set：
 
-    PCTIME_DB_HOST=127.0.0.1
-    PCTIME_DB_PASSWORD=......
-    PCTIME_ADMIN_TOKEN=......
+    TIMETRACE_DB_HOST=127.0.0.1
+    TIMETRACE_DB_PASSWORD=......
+    TIMETRACE_ADMIN_TOKEN=......
 
 第 1 条压过第 2 条是刻意的，不是顺序凑巧：临时试一个值还是 `set` 更顺手，
 而要是 .env 反过来能盖掉它，就会变成「明明 set 了却不生效」这种最难查的故障。
@@ -30,8 +30,12 @@ def _env(name, default):
     那时候我们想要的是默认值，不是空值。
     """
     value = os.environ.get(name)
-    if (value is None or value == "") and name.startswith("PCTIME_"):
-        value = os.environ.get("USAGETIME_" + name[len("PCTIME_"):])
+    if (value is None or value == "") and name.startswith("TIMETRACE_"):
+        # 兼容旧键：先 TIMETRACE_*，再 PCTIME_*，最后 USAGETIME_*。
+        suffix = name[len("TIMETRACE_"):]
+        value = os.environ.get("PCTIME_" + suffix)
+        if value is None or value == "":
+            value = os.environ.get("USAGETIME_" + suffix)
     return default if value is None or value == "" else value
 
 
@@ -79,13 +83,13 @@ def parse_env_text(text):
     认这几种写法，其余的行**直接跳过**：.env 是给人手写的，敲错一行不该让
     整个服务端起不来（那条配置会退回默认值，被下面的 ENV_FILE_LOADED 日志反衬出来）。
 
-        KEY=value          PCTIME_DB_HOST=127.0.0.1
-        export KEY=value   export PCTIME_DB_HOST=127.0.0.1   （照抄 shell 写法也不会错）
+        KEY=value          TIMETRACE_DB_HOST=127.0.0.1
+        export KEY=value   export TIMETRACE_DB_HOST=127.0.0.1   （照抄 shell 写法也不会错）
         KEY="value"        双引号：值里的空格保留，支持 \\n \\t \\\\ \\" 转义
         KEY='value'        单引号：值原样保留，一个转义都不做（和 shell 一致）
         # 注释、空行
 
-    键名**不**自动补 `PCTIME_` 前缀：这里只认全名，和 os.environ 里对得上。
+    键名**不**自动补 `TIMETRACE_` 前缀：这里只认全名，和 os.environ 里对得上。
     """
     out = {}
     for raw in text.splitlines():
@@ -113,7 +117,7 @@ def apply_env(mapping, environ=None):
     """把键值灌进环境变量，**已经存在的键一律不动**。
 
     用 setdefault 而不是 `env[k] = v`，就是为了让真环境变量保持优先
-    （见模块开头第 1 条）。想验证的话：`set PCTIME_DB_HOST=X` 之后
+    （见模块开头第 1 条）。想验证的话：`set TIMETRACE_DB_HOST=X` 之后
     .env 里写别的值也不会生效。
     """
     env = os.environ if environ is None else environ
@@ -144,16 +148,16 @@ ENV_FILE_LOADED = load_env_file() is not None
 
 # ── 数据库 ────────────────────────────────────────────────────
 
-DB_HOST = _env("PCTIME_DB_HOST", "127.0.0.1")
-DB_PORT = int(_env("PCTIME_DB_PORT", "3306"))
-DB_USER = _env("PCTIME_DB_USER", "pctime")
-DB_NAME = _env("PCTIME_DB_NAME", "pctime")
+DB_HOST = _env("TIMETRACE_DB_HOST", "127.0.0.1")
+DB_PORT = int(_env("TIMETRACE_DB_PORT", "3306"))
+DB_USER = _env("TIMETRACE_DB_USER", "timetrace")
+DB_NAME = _env("TIMETRACE_DB_NAME", "timetrace")
 
 # 密码**没有**默认值，只能从环境变量或 .env 来。这是这次改动里唯一一处
 # 默认值的变化：以前这里写着明文口令，等于把生产密码写死在代码里。
 # 留空的表现是连不上（pymysql 报 Access denied），很吵，正好。
 # 真实的那个值在 server/.env（已被 .gitignore 忽略）。
-DB_PASSWORD = _env("PCTIME_DB_PASSWORD", "")
+DB_PASSWORD = _env("TIMETRACE_DB_PASSWORD", "")
 
 # utf8mb4 而不是 utf8：MySQL 的 "utf8" 其实只有 3 字节，存不下 emoji 和
 # 一部分生僻字。应用显示名里出现这些字符时，"utf8" 会直接报错或截断。
@@ -161,29 +165,29 @@ DB_CHARSET = "utf8mb4"
 
 # Existing installations can initialize with a DDL account once, then run with
 # SELECT/INSERT/UPDATE/DELETE only. Missing tables remain a startup error.
-DB_INIT_SCHEMA = _env("PCTIME_DB_INIT_SCHEMA", "1").lower() not in ("0", "false", "no")
+DB_INIT_SCHEMA = _env("TIMETRACE_DB_INIT_SCHEMA", "1").lower() not in ("0", "false", "no")
 
 # ⚠️ 用 root 连数据库是能跑，但不应该长期这样：
 #    root 对整台 MySQL 有全部权限，一旦服务端被攻破（比如接口有注入漏洞），
-#    攻击者拿到的不只是 pctime 这个库，而是整台数据库服务器。
+#    攻击者拿到的不只是 timetrace 这个库，而是整台数据库服务器。
 #    正确做法是建一个只对本库有增删改查权限的专用账号：
 #
-#        CREATE USER 'pctime'@'%' IDENTIFIED BY '<强密码>';
-#        GRANT SELECT, INSERT, UPDATE, DELETE ON pctime.* TO 'pctime'@'%';
+#        CREATE USER 'timetrace'@'%' IDENTIFIED BY '<强密码>';
+#        GRANT SELECT, INSERT, UPDATE, DELETE ON timetrace.* TO 'timetrace'@'%';
 #
-#    然后 PCTIME_DB_USER / PCTIME_DB_PASSWORD 指向它。
+#    然后 TIMETRACE_DB_USER / TIMETRACE_DB_PASSWORD 指向它。
 
 
 # ── HTTP 监听 ─────────────────────────────────────────────────
 
 # 0.0.0.0 表示监听所有网卡，局域网/公网才能访问到。
 # 只想本机访问就改成 127.0.0.1。
-HOST = _env("PCTIME_HOST", "127.0.0.1")
+HOST = _env("TIMETRACE_HOST", "127.0.0.1")
 
 # 3306 被 MySQL 占了，所以服务端用 8000。
 # ⚠️ 这个端口必须在服务器的安全组/防火墙里放行，否则客户端连不上——
 #    如果需要外部直连，还需检查安全组和防火墙；反向代理部署时按需开放代理端口。
-PORT = int(_env("PCTIME_PORT", "8000"))
+PORT = int(_env("TIMETRACE_PORT", "8000"))
 
 
 # ── 管理接口口令 ──────────────────────────────────────────────
@@ -191,15 +195,15 @@ PORT = int(_env("PCTIME_PORT", "8000"))
 # 「列出所有用户」这类管理接口要带上 X-Admin-Token 请求头，值就是它。
 # 留空 = 管理接口直接关闭（返回 403）。默认留空是故意的：
 # 宁愿管理接口不能用，也不要让它默认裸奔在公网上。
-ADMIN_TOKEN = _env("PCTIME_ADMIN_TOKEN", "")
+ADMIN_TOKEN = _env("TIMETRACE_ADMIN_TOKEN", "")
 
 
 # ── 上传接口的限制 ────────────────────────────────────────────
 
 # 单次上传最多允许几天、每天最多几个应用。用来防止有人构造一个超大请求
 # 把内存/数据库打满。正常客户端一次只传「补传的这几天」，远低于这两个数。
-MAX_DAYS_PER_UPLOAD = int(_env("PCTIME_MAX_DAYS", "400"))
-MAX_APPS_PER_DAY = int(_env("PCTIME_MAX_APPS", "2000"))
+MAX_DAYS_PER_UPLOAD = int(_env("TIMETRACE_MAX_DAYS", "400"))
+MAX_APPS_PER_DAY = int(_env("TIMETRACE_MAX_APPS", "2000"))
 
 
 # ── 客户端版本 ────────────────────────────────────────────────
@@ -214,23 +218,23 @@ MIN_CLIENT_VERSION = "1.0.0"
 # 这一块默认是**关闭**的：没有 SMTP_HOST 就没有「发信人」，硬发只会报错，
 # 所以没配就整体不启用，服务端行为跟以前完全一样。
 #
-#    PCTIME_SMTP_HOST=smtp.qq.com
-#    PCTIME_SMTP_USER=you@qq.com
-#    PCTIME_SMTP_PASSWORD=<授权码，不是登录密码>
-#    PCTIME_MAIL_FROM=you@qq.com
+#    TIMETRACE_SMTP_HOST=smtp.qq.com
+#    TIMETRACE_SMTP_USER=you@qq.com
+#    TIMETRACE_SMTP_PASSWORD=<授权码，不是登录密码>
+#    TIMETRACE_MAIL_FROM=you@qq.com
 #
 # ⚠️ 注意腾讯/网易这类邮箱的 SMTP 密码是「授权码」，要在邮箱设置里单独开
 #    并生成，不是账号登录密码。填登录密码会一直认证失败。
 
-SMTP_HOST = _env("PCTIME_SMTP_HOST", "")
-SMTP_USER = _env("PCTIME_SMTP_USER", "")
-SMTP_PASSWORD = _env("PCTIME_SMTP_PASSWORD", "")
+SMTP_HOST = _env("TIMETRACE_SMTP_HOST", "")
+SMTP_USER = _env("TIMETRACE_SMTP_USER", "")
+SMTP_PASSWORD = _env("TIMETRACE_SMTP_PASSWORD", "")
 
 # 465：连上就加密（SMTP_SSL）。587：先明文握手再 STARTTLS 升级。
 # 默认按端口自动判断（587 走 STARTTLS，其它端口走 SSL），因为这两个端口号
-# 本身就绑定了各自的加密方式；真想覆盖再用 PCTIME_SMTP_SSL=0/1。
-SMTP_PORT = int(_env("PCTIME_SMTP_PORT", "465"))
-_SMTP_SSL_ENV = _env("PCTIME_SMTP_SSL", "").lower()
+# 本身就绑定了各自的加密方式；真想覆盖再用 TIMETRACE_SMTP_SSL=0/1。
+SMTP_PORT = int(_env("TIMETRACE_SMTP_PORT", "465"))
+_SMTP_SSL_ENV = _env("TIMETRACE_SMTP_SSL", "").lower()
 SMTP_USE_SSL = (
     _SMTP_SSL_ENV not in ("0", "false", "no")
     if _SMTP_SSL_ENV
@@ -238,28 +242,28 @@ SMTP_USE_SSL = (
 )
 
 # 发信人。留空就用 SMTP_USER（绝大多数邮箱要求这两者一致，否则被拒）。
-MAIL_FROM = _env("PCTIME_MAIL_FROM", "") or SMTP_USER
-MAIL_FROM_NAME = _env("PCTIME_MAIL_FROM_NAME", "TimeTrace 使用报告")
+MAIL_FROM = _env("TIMETRACE_MAIL_FROM", "") or SMTP_USER
+MAIL_FROM_NAME = _env("TIMETRACE_MAIL_FROM_NAME", "TimeTrace 使用报告")
 
-# 配了 SMTP_HOST 才算启用。PCTIME_MAIL_ENABLED=0 可以强制关掉。
+# 配了 SMTP_HOST 才算启用。TIMETRACE_MAIL_ENABLED=0 可以强制关掉。
 MAIL_ENABLED = bool(SMTP_HOST and MAIL_FROM) and \
-    _env("PCTIME_MAIL_ENABLED", "1").lower() not in ("0", "false", "no")
+    _env("TIMETRACE_MAIL_ENABLED", "1").lower() not in ("0", "false", "no")
 
 # 进程内定时器（每天到点自己发）。关掉它但保留邮件功能，是为了支持
 # 「用外部 cron 定时调 POST /api/v1/admin/daily-mail」这种部署方式 ——
 # 那时进程内再来一个定时器就重复了。
 MAIL_SCHEDULER_ENABLED = MAIL_ENABLED and \
-    _env("PCTIME_MAIL_SCHEDULER", "1").lower() not in ("0", "false", "no")
+    _env("TIMETRACE_MAIL_SCHEDULER", "1").lower() not in ("0", "false", "no")
 
 # 每天几点发。默认次日 00:03，给客户端保留 3 分钟完成前一天最后的数据上报。
-MAIL_SEND_TIME = _env("PCTIME_MAIL_TIME", "00:03:00")
+MAIL_SEND_TIME = _env("TIMETRACE_MAIL_TIME", "00:03:00")
 
 # Additional mail sections are independent and gracefully degrade on missing data.
-MAIL_TRACKING_ENABLED = _env("PCTIME_MAIL_TRACKING", "1").lower() not in ("0", "false", "no")
+MAIL_TRACKING_ENABLED = _env("TIMETRACE_MAIL_TRACKING", "1").lower() not in ("0", "false", "no")
 
 # 补发窗口：服务器半夜重启/宕机导致某天没发出去时，允许在后续几次运行里
 # 把它补上。见 mail/scheduler.py 里关于「触发日与报告日不同」的说明。
-MAIL_CATCHUP_DAYS = int(_env("PCTIME_MAIL_CATCHUP_DAYS", "2"))
+MAIL_CATCHUP_DAYS = int(_env("TIMETRACE_MAIL_CATCHUP_DAYS", "2"))
 
 # 一个星期里哪一天发周报，取值 0..6 对应**周一..周日**（跟 date.weekday() 的
 # 编号一致，不是 isoweekday() 的 1..7）。默认 6 = 周日。
@@ -273,18 +277,18 @@ MAIL_CATCHUP_DAYS = int(_env("PCTIME_MAIL_CATCHUP_DAYS", "2"))
 #
 # ⚠️ 别在周中改这个值：那天的记录可能已经被日报占了键，改完之后那一周的周报
 #    会被 was_mail_sent 挡掉、发不出去。真要改就在两次发送之间改。
-MAIL_WEEKLY_DAY = int(_env("PCTIME_MAIL_WEEKLY_DAY", "6"))
+MAIL_WEEKLY_DAY = int(_env("TIMETRACE_MAIL_WEEKLY_DAY", "6"))
 
 # 纯文本备用版本的网站明细上限；网站图表按时长动态展开。
-MAIL_MAX_APPS = int(_env("PCTIME_MAIL_MAX_APPS", "60"))
-MAIL_MAX_SITES = int(_env("PCTIME_MAIL_MAX_SITES", "40"))
+MAIL_MAX_APPS = int(_env("TIMETRACE_MAIL_MAX_APPS", "60"))
+MAIL_MAX_SITES = int(_env("TIMETRACE_MAIL_MAX_SITES", "40"))
 # Largest categories shown separately in stacked charts; remaining time is Other.
-MAIL_CHART_SERIES = max(1, min(12, int(_env("PCTIME_MAIL_CHART_SERIES", "8"))))
+MAIL_CHART_SERIES = max(1, min(12, int(_env("TIMETRACE_MAIL_CHART_SERIES", "8"))))
 
 # 图表中文标签要用的中文字体文件。留空时自动找：Windows 用微软雅黑，
 # Linux 找 Noto CJK / 文泉驿；找不到就回退到英文键名。
-MAIL_CHART_CJK_FONT = _env("PCTIME_MAIL_CHART_CJK_FONT", "")
+MAIL_CHART_CJK_FONT = _env("TIMETRACE_MAIL_CHART_CJK_FONT", "")
 
 # 单次 SMTP 操作的超时（秒）。设短一点，免得某个收件方的服务器卡住时
 # 把整个发送线程一直吊在那里。
-SMTP_TIMEOUT = int(_env("PCTIME_SMTP_TIMEOUT", "20"))
+SMTP_TIMEOUT = int(_env("TIMETRACE_SMTP_TIMEOUT", "20"))

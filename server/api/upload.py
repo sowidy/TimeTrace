@@ -14,7 +14,7 @@ from db import conn as db_conn
 from db import usage_records as db_usage_records
 from db import users as db_users
 
-log = logging.getLogger("pctime")
+log = logging.getLogger("timetrace")
 
 router = APIRouter()
 

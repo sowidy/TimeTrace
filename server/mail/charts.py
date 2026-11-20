@@ -29,7 +29,7 @@ OTHER = "\x00other"
 LINE = theme.LINE
 
 # CJK-capable fonts for rasterized chart labels, first match wins.
-# PCTIME_MAIL_CHART_CJK_FONT can point at an explicit font file.
+# TIMETRACE_MAIL_CHART_CJK_FONT can point at an explicit font file.
 _CJK_FONT_CANDIDATES = (
     r"C:\Windows\Fonts\msyh.ttc",
     r"C:\Windows\Fonts\simhei.ttf",

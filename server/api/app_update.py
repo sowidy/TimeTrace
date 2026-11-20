@@ -11,7 +11,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-log = logging.getLogger("pctime")
+log = logging.getLogger("timetrace")
 
 router = APIRouter()
 

@@ -17,7 +17,7 @@ from datetime import datetime, time, timedelta
 import config
 from mail.sender import run
 
-log = logging.getLogger("pctime.mail.scheduler")
+log = logging.getLogger("timetrace.mail.scheduler")
 
 DEFAULT_SEND_TIME = time(0, 3)
 
@@ -25,7 +25,7 @@ DEFAULT_SEND_TIME = time(0, 3)
 # ── 定时点解析 ────────────────────────────────────────────────
 
 def parse_send_time(raw):
-    """把 PCTIME_MAIL_TIME 解析成 datetime.time，解析不了就用默认值。
+    """把 TIMETRACE_MAIL_TIME 解析成 datetime.time，解析不了就用默认值。
 
     这里不抛异常：配置写错了就不该让整个服务起不来 —— 大不了按默认时间发，
     日志里有告警，比服务直接崩掉好。
@@ -35,7 +35,7 @@ def parse_send_time(raw):
             return datetime.strptime((raw or "").strip(), fmt).time()
         except ValueError:
             continue
-    log.warning("PCTIME_MAIL_TIME=%r 解析不了，改用默认的 00:03:00", raw)
+    log.warning("TIMETRACE_MAIL_TIME=%r 解析不了，改用默认的 00:03:00", raw)
     return DEFAULT_SEND_TIME
 
 
@@ -97,7 +97,7 @@ class DailyMailScheduler:
         if self._thread and self._thread.is_alive():
             return self
         self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="pctime-mail-scheduler", daemon=True)
+        self._thread = threading.Thread(target=self._loop, name="timetrace-mail-scheduler", daemon=True)
         self._thread.start()
         return self
 
@@ -164,7 +164,7 @@ def start_scheduler():
     global _scheduler
 
     if not config.MAIL_ENABLED:
-        log.info("每日邮件未启用（没配 PCTIME_SMTP_HOST），跳过定时器")
+        log.info("每日邮件未启用（没配 TIMETRACE_SMTP_HOST），跳过定时器")
         return None
     if not config.MAIL_SCHEDULER_ENABLED:
         log.info("进程内定时器已关闭，请用外部 cron 调POST /api/v1/admin/daily-mail")

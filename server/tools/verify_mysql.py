@@ -119,7 +119,7 @@ def main():
     client_path = args.client.resolve() if args.client else None
     if client_path and not (client_path / "tools/verify_sync.py").is_file():
         parser.error("--client must contain tools/verify_sync.py; omit --client for a server-only checkout")
-    with tempfile.TemporaryDirectory(prefix="pctime-standalone-") as temp:
+    with tempfile.TemporaryDirectory(prefix="timetrace-standalone-") as temp:
         root = Path(temp)
         isolated = root / "server"
         shutil.copytree(SERVER, isolated, ignore=shutil.ignore_patterns(
@@ -131,12 +131,12 @@ def main():
             client_path = client_copy
         # A copy containing server/ alone proves there are no sibling-code imports.
         env = {k: v for k, v in os.environ.items()
-               if not k.startswith(("PCTIME_", "USAGETIME_")) and k != "PYTHONPATH"}
+               if not k.startswith(("TIMETRACE_", "PCTIME_", "USAGETIME_")) and k != "PYTHONPATH"}
         db_port, api_port = free_port(), free_port()
-        env.update(PCTIME_DB_HOST="127.0.0.1", PCTIME_DB_PORT=str(db_port),
-                   PCTIME_DB_USER="root", PCTIME_DB_PASSWORD="", PCTIME_DB_INIT_SCHEMA="1",
-                   PCTIME_MAIL_ENABLED="0", PCTIME_MAIL_SCHEDULER="0",
-                   PCTIME_HOST="127.0.0.1", PCTIME_PORT=str(api_port), PYTHONUTF8="1")
+        env.update(TIMETRACE_DB_HOST="127.0.0.1", TIMETRACE_DB_PORT=str(db_port),
+                   TIMETRACE_DB_USER="root", TIMETRACE_DB_PASSWORD="", TIMETRACE_DB_INIT_SCHEMA="1",
+                   TIMETRACE_MAIL_ENABLED="0", TIMETRACE_MAIL_SCHEDULER="0",
+                   TIMETRACE_HOST="127.0.0.1", TIMETRACE_PORT=str(api_port), PYTHONUTF8="1")
         check = subprocess.run([sys.executable, str(isolated / "check.py")], cwd=root,
                                env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
         assert check.returncode == 0, check.stderr
@@ -175,7 +175,7 @@ def main():
                                 user_ddl = user_ddl[user_ddl.index("CREATE TABLE"):].split(";")[0]
                                 cur.execute("USE " + database)
                                 cur.execute(user_ddl.replace("utf8mb4_unicode_ci", "utf8mb4_general_ci"))
-                        env["PCTIME_DB_NAME"] = database
+                        env["TIMETRACE_DB_NAME"] = database
                         base = f"http://127.0.0.1:{api_port}"
                         api_log = root / (name + ".log")
                         with api_log.open("wb") as api_out:
@@ -204,8 +204,8 @@ def main():
                             username = "verify_" + name
                             cur.execute(f"CREATE USER '{username}'@'127.0.0.1' IDENTIFIED BY 'temporary-test'")
                             cur.execute(f"GRANT SELECT,INSERT,UPDATE,DELETE ON {database}.* TO '{username}'@'127.0.0.1'")
-                        runtime = dict(env, PCTIME_DB_USER=username, PCTIME_DB_PASSWORD="temporary-test",
-                                       PCTIME_DB_INIT_SCHEMA="0")
+                        runtime = dict(env, TIMETRACE_DB_USER=username, TIMETRACE_DB_PASSWORD="temporary-test",
+                                       TIMETRACE_DB_INIT_SCHEMA="0")
                         result = subprocess.run([sys.executable, str(isolated / "check.py"), "--database"],
                                                 cwd=root, env=runtime, capture_output=True, text=True,
                                                 encoding="utf-8", timeout=30)

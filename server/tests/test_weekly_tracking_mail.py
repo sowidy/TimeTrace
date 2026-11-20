@@ -92,7 +92,7 @@ class WeeklyTrackingTests(unittest.TestCase):
         self.assertNotIn("应用时间线", message[2])
 
     def test_website_query_failure_keeps_application_chart(self):
-        with self.assertLogs("pctime.mail.sender", level="WARNING"):
+        with self.assertLogs("timetrace.mail.sender", level="WARNING"):
             message = self._send(sites=RuntimeError("test-only database failure"))
         self.assertIn("一周应用使用趋势", message[2])
         self.assertNotIn('data-timeline="itinerary"', message[2])

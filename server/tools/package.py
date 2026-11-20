@@ -21,7 +21,7 @@ def main():
         if not (SERVER / name).is_file():
             raise RuntimeError("Missing runtime file: " + name)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="pctime-legal-") as temp, \
+    with tempfile.TemporaryDirectory(prefix="timetrace-legal-") as temp, \
             zipfile.ZipFile(args.output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         stage(temp, ("fastapi", "uvicorn", "pydantic", "pymysql", "cryptography", "Pillow"))
         for path in sorted(SERVER.rglob("*")):

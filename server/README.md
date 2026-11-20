@@ -1,4 +1,4 @@
-# PcTime 服务端
+# TimeTrace 服务端
 
 接收客户端上传的每日使用记录（「应用名 + 使用时长」+ 启动次数），存进 MySQL，
 并按订阅把使用报告用邮件发出去。技术栈是 FastAPI + PyMySQL，部署成一棵
@@ -108,7 +108,7 @@ pip install -r server/requirements.txt
 
 # 2. 建库（表不用管，服务端启动时会按 db/schema.sql 自动建）
 mysql -h 127.0.0.1 -u root -p \
-  -e "CREATE DATABASE pctime DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+  -e "CREATE DATABASE timetrace DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # 3. 启动
 cd server
@@ -125,7 +125,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 pip install -r server/requirements.txt
 cd server
 uvicorn app:app --host 0.0.0.0 --port 8000
-# 再把 client/.env 里的 PCTIME_SERVER_HOST 指向本机
+# 再把 client/.env 里的 TIMETRACE_SERVER_HOST 指向本机
 ```
 
 数据库地址和口令在 `server/.env` 里（模板 `server/.env.example`），服务端启动时
@@ -134,8 +134,8 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 
 ```sql
 -- 只给这一个库的权限，比放开 root 远程安全得多
-CREATE USER 'pctime'@'%' IDENTIFIED BY '<强密码>';
-GRANT ALL PRIVILEGES ON pctime.* TO 'pctime'@'%';
+CREATE USER 'timetrace'@'%' IDENTIFIED BY '<强密码>';
+GRANT ALL PRIVILEGES ON timetrace.* TO 'timetrace'@'%';
 FLUSH PRIVILEGES;
 ```
 
@@ -151,7 +151,7 @@ FLUSH PRIVILEGES;
 > ⚠️ 本地跑服务端时注意：进程**没开 `--reload`**，改完代码必须重启才生效。
 > 而重启会立刻触发**启动补发**（见[邮件报告](#邮件报告)），库里只要真有订阅用户
 > 和 SMTP 配置，那一轮就是真发邮件。只想验证渲染就加 `dry_run=true`，或者临时设
-> `PCTIME_MAIL_SCHEDULER=0` 起进程把定时器和补发一起关掉。
+> `TIMETRACE_MAIL_SCHEDULER=0` 起进程把定时器和补发一起关掉。
 
 ## 配置（.env）
 
@@ -179,30 +179,30 @@ copy server\.env.example server\.env      # Linux/macOS 用 cp
 
 | 配置项（`.env` 里的名字，与环境变量同名） | 含义 | 默认 |
 | --- | --- | --- |
-| `PCTIME_DB_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_NAME` | MySQL 连接 | `127.0.0.1:3306` `pctime` / **无默认，必须自己填** / `pctime` |
-| `PCTIME_HOST` / `_PORT` | 监听地址 | `127.0.0.1:8000`（部署模板使用 `0.0.0.0`） |
-| `PCTIME_ADMIN_TOKEN` | 管理接口口令（`/users`、`/admin/*`） | 空 = 管理接口直接 403 |
-| `PCTIME_MAX_DAYS` / `_APPS` | 单次上传的天数 / 每天应用数上限 | `400` / `2000` |
-| `PCTIME_SMTP_HOST` | 发信服务器，**留空 = 邮件功能整体关闭** | 空 |
-| `PCTIME_SMTP_PORT` / `_USER` / `_PASSWORD` | SMTP 账号（密码填**授权码**） | `465` / 空 / 空 |
-| `PCTIME_SMTP_SSL` | 强制开/关加密；空 = 按端口自动判断（587 走 STARTTLS，其余走 SSL） | 空 |
-| `PCTIME_MAIL_FROM` / `_NAME` | 发信地址 / 显示名 | 空（= `SMTP_USER`） / `PcTime 使用报告` |
-| `PCTIME_MAIL_ENABLED` | 设 `0` 强制关掉邮件（即使 SMTP 配好了） | `1` |
-| `PCTIME_MAIL_TIME` | 次日几点发送前一天报告，`HH:MM[:SS]` | `00:03:00` |
-| `PCTIME_MAIL_CATCHUP_DAYS` | 漏发后回头补几天 | `2` |
-| `PCTIME_MAIL_SCHEDULER` | 设 `0` 关掉进程内定时器（改用外部 cron） | `1` |
-| `PCTIME_MAIL_MAX_APPS` | 纯文本应用明细上限；0 为全部，较小正值也限制图表单独展示的类别数 | `60` |
-| `PCTIME_MAIL_MAX_SITES` | 纯文本网站明细上限；0 为全部 | `40` |
-| `PCTIME_MAIL_CHART_SERIES` | 软件堆叠柱的类别上限（1–12）；网站柱图以此为最少展示数，再按时长动态展开，最多 80 个网站 | `8` |
-| `PCTIME_MAIL_WEEKLY_DAY` | 一周里哪一天发周报（`0`=周一 … `6`=周日），其余日子发当天日报 | `6` |
-| `PCTIME_SMTP_TIMEOUT` | 单次 SMTP 操作超时（秒） | `20` |
+| `TIMETRACE_DB_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_NAME` | MySQL 连接 | `127.0.0.1:3306` `timetrace` / **无默认，必须自己填** / `timetrace` |
+| `TIMETRACE_HOST` / `_PORT` | 监听地址 | `127.0.0.1:8000`（部署模板使用 `0.0.0.0`） |
+| `TIMETRACE_ADMIN_TOKEN` | 管理接口口令（`/users`、`/admin/*`） | 空 = 管理接口直接 403 |
+| `TIMETRACE_MAX_DAYS` / `_APPS` | 单次上传的天数 / 每天应用数上限 | `400` / `2000` |
+| `TIMETRACE_SMTP_HOST` | 发信服务器，**留空 = 邮件功能整体关闭** | 空 |
+| `TIMETRACE_SMTP_PORT` / `_USER` / `_PASSWORD` | SMTP 账号（密码填**授权码**） | `465` / 空 / 空 |
+| `TIMETRACE_SMTP_SSL` | 强制开/关加密；空 = 按端口自动判断（587 走 STARTTLS，其余走 SSL） | 空 |
+| `TIMETRACE_MAIL_FROM` / `_NAME` | 发信地址 / 显示名 | 空（= `SMTP_USER`） / `TimeTrace 使用报告` |
+| `TIMETRACE_MAIL_ENABLED` | 设 `0` 强制关掉邮件（即使 SMTP 配好了） | `1` |
+| `TIMETRACE_MAIL_TIME` | 次日几点发送前一天报告，`HH:MM[:SS]` | `00:03:00` |
+| `TIMETRACE_MAIL_CATCHUP_DAYS` | 漏发后回头补几天 | `2` |
+| `TIMETRACE_MAIL_SCHEDULER` | 设 `0` 关掉进程内定时器（改用外部 cron） | `1` |
+| `TIMETRACE_MAIL_MAX_APPS` | 纯文本应用明细上限；0 为全部，较小正值也限制图表单独展示的类别数 | `60` |
+| `TIMETRACE_MAIL_MAX_SITES` | 纯文本网站明细上限；0 为全部 | `40` |
+| `TIMETRACE_MAIL_CHART_SERIES` | 软件堆叠柱的类别上限（1–12）；网站柱图以此为最少展示数，再按时长动态展开，最多 80 个网站 | `8` |
+| `TIMETRACE_MAIL_WEEKLY_DAY` | 一周里哪一天发周报（`0`=周一 … `6`=周日），其余日子发当天日报 | `6` |
+| `TIMETRACE_SMTP_TIMEOUT` | 单次 SMTP 操作超时（秒） | `20` |
 
 真环境变量压过 `.env` 是刻意的：临时试一个值用命令行更顺手，反过来就会出现
 「明明 set 了却不生效」这种最难查的故障。
 
 ```bash
 # 只这一次改掉口令，不动 .env
-PCTIME_ADMIN_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(32))") \
+TIMETRACE_ADMIN_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(32))") \
   uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
@@ -217,7 +217,7 @@ PCTIME_ADMIN_TOKEN=$(python -c "import secrets;print(secrets.token_urlsafe(32))"
 > 本机访问一律写 `http://127.0.0.1:8000`；别人访问你这台机器要用你的局域网/公网 IP。
 >
 > 还有：在 `/docs` 里调管理接口（下面标着「需要 `X-Admin-Token`」的那几条）之前，
-> 要先点右上角 **Authorize** 填入口令。`PCTIME_ADMIN_TOKEN` 没配时这些接口一律
+> 要先点右上角 **Authorize** 填入口令。`TIMETRACE_ADMIN_TOKEN` 没配时这些接口一律
 > 返回 403，那不是出错，是设计如此。
 
 ```
@@ -237,7 +237,7 @@ GET  /api/v1/admin/mail-log?day=      查发送记录
 [client/README.md](../client/README.md)。
 
 上传接口的写入是**按「设备 + 日期」整块覆盖**的，所以客户端重传同一天不会让时长
-翻倍；`PCTIME_MAX_DAYS` / `_APPS` 是单次请求的兜底上限。
+翻倍；`TIMETRACE_MAX_DAYS` / `_APPS` 是单次请求的兜底上限。
 
 ## 邮件报告
 
@@ -245,7 +245,7 @@ GET  /api/v1/admin/mail-log?day=      查发送记录
 日报包含真实软件使用时段和时长图、网站甘特图、带每小时总时长标注的堆叠柱与网站类型饼图。
 软件时段图和周报软件热力图需客户端开启对应上传选项；未收到起止时段时明确提示，不从 15 分钟汇总推造精确时刻。周报热力图仅使用真实分时数据，缺失日期显示为灰色。
 
-网站图表要求服务端 `PCTIME_MAIL_TRACKING=1`（默认），客户端开启
+网站图表要求服务端 `TIMETRACE_MAIL_TRACKING=1`（默认），客户端开启
 “邮件中加入网站图表”并手动上传或启用自动上传。客户端手动“立即上传”会同时发送应用和已授权的明细，可补传历史
 网站记录；应用、网站和应用时段分别显示结果。网站明细支持配置的 HTTP 或 HTTPS 地址，
 HTTP 传输未加密，公网部署建议使用受信任 HTTPS。缺少时段或分时记录时明确标注
@@ -267,9 +267,9 @@ HTTP 传输未加密，公网部署建议使用受信任 HTTPS。缺少时段或
 配好 SMTP 之后，服务端每天 **00:03** 给「已订阅且填了邮箱」的设备发送**前一天**
 的一封使用报告。自然日结束后预留 3 分钟，让客户端完成最后的统计和上传，再读取
 已收到的数据生成邮件。主题带总时长，正文提供图表与明细（纯文本 + HTML 两版，客户端能
-显示 HTML 就用 HTML）。没配 `PCTIME_SMTP_HOST` 时这块整体不启用。
+显示 HTML 就用 HTML）。没配 `TIMETRACE_SMTP_HOST` 时这块整体不启用。
 
-发的是日报还是周报，由**那一天是星期几**决定（`PCTIME_MAIL_WEEKLY_DAY`，
+发的是日报还是周报，由**那一天是星期几**决定（`TIMETRACE_MAIL_WEEKLY_DAY`，
 默认周日）：
 
 | 日子 | 发什么 | 覆盖区间 |
@@ -287,7 +287,7 @@ HTTP 传输未加密，公网部署建议使用受信任 HTTPS。缺少时段或
 依然管用（详见 `server/mail/__init__.py` 的说明）。想查某一封是哪种，看
 `GET /api/v1/admin/mail-log` 里 `detail`（存的是主题）带不带 `周报` 就行，不用加列。
 
-> 改 `PCTIME_MAIL_WEEKLY_DAY` **别挑周中改**：那一天的键可能已经被日报占了，
+> 改 `TIMETRACE_MAIL_WEEKLY_DAY` **别挑周中改**：那一天的键可能已经被日报占了，
 > 改完这周的周报会因为「已经发过」发不出去。要改就在新的一周开始前改。
 
 「已订阅且填了邮箱」这两项由客户端在「设置 → 数据上传 → 每日报告邮件」里设置，
@@ -301,7 +301,7 @@ HTTP 传输未加密，公网部署建议使用受信任 HTTPS。缺少时段或
   仍然发送昨天，不会误发今天。
 - **「今天发过没有」落在数据库里**，不是内存标记（`mail_log` 表，
   `UNIQUE KEY (user_key, day)`）。半夜重启一次就重发一封，是这类功能最常见的毛病。
-- **漏了会补。** 启动时和每次发送时会顺带补发前 `PCTIME_MAIL_CATCHUP_DAYS`
+- **漏了会补。** 启动时和每次发送时会顺带补发前 `TIMETRACE_MAIL_CATCHUP_DAYS`
   天里没发成功过的日子。已经发过的靠上面那个唯一键挡掉，不会重复发。
   启动补发**只补已经到达 00:03 发送期限的日子**：00:03 前重启不会提前发送昨天，
   到点后才把昨天纳入补发，确保 3 分钟数据收集缓冲不被启动流程绕过。
@@ -329,13 +329,13 @@ curl -X POST "http://127.0.0.1:8000/api/v1/admin/daily-mail?user_key=<设备ID>"
 ```
 
 外部 cron 部署**不需要知道周报这回事**：照旧调 `POST /api/v1/admin/daily-mail`，
-周日那次自然就是周报。记得同时设 `PCTIME_MAIL_SCHEDULER=0` 关掉进程内定时器，
+周日那次自然就是周报。记得同时设 `TIMETRACE_MAIL_SCHEDULER=0` 关掉进程内定时器，
 免得两处重复发。
 
 > **多 worker 注意**：定时器跑在服务端进程内。用 `uvicorn --workers N` 会有 N 个
 > 定时器同时到点，`mail_log` 的唯一键能兜住绝大多数重复，但「查过没发」和
 > 「写记录」之间仍有理论上的竞态窗口。要么单 worker 跑（这个量级完全够），要么设
-> `PCTIME_MAIL_SCHEDULER=0` 关掉它，改用系统 cron 调上面的接口。
+> `TIMETRACE_MAIL_SCHEDULER=0` 关掉它，改用系统 cron 调上面的接口。
 >
 > **QQ / 163 这类邮箱的 SMTP 密码是「授权码」**，要在邮箱设置里单独开启并生成。
 > 填账号登录密码会一直认证失败，而报错通常只说「认证失败」，不容易联想到是这里。
@@ -351,7 +351,7 @@ curl -X POST "http://127.0.0.1:8000/api/v1/admin/daily-mail?user_key=<设备ID>"
 >    **不要**对公网开放。
 >
 > 应用和已授权的网站明细支持 HTTP 或 HTTPS。HTTP 传输未加密；公网部署建议
-> 在前面挂一层 Nginx 配 TLS，把客户端 `.env` 中的 `PCTIME_SERVER_URL`
+> 在前面挂一层 Nginx 配 TLS，把客户端 `.env` 中的 `TIMETRACE_SERVER_URL`
 > 设为完整 HTTPS 根 URL。支持域名或包含 IP SAN 的公网 IP 证书。
 > 网站统计与浏览器配对见 [客户端说明](../client/README.md)，服务器升级见 [独立部署说明](deploy/README.md)。
 

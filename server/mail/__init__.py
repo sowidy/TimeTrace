@@ -35,7 +35,7 @@
 N 个定时器同时到点，它们靠 mail_log 的唯一键互相兜底（重复的那封会在写
 记录时撞键），但严格来说「查过没发」和「写记录」之间仍有竞态窗口，理论上
 可能重复发一封。要么单 worker 跑（这个服务的量级完全够），要么关掉
-进程内定时器（PCTIME_MAIL_SCHEDULER=0），改由外部 cron 调
+进程内定时器（TIMETRACE_MAIL_SCHEDULER=0），改由外部 cron 调
 POST /api/v1/admin/daily-mail。
 
 按「一条责任一个文件」拆开，依赖方向是单向的 report ← sender ← scheduler：

@@ -27,7 +27,7 @@ from db import mail_log, usage_records, users
 from mail import merge as mail_merge
 from mail import report
 
-log = logging.getLogger("pctime.mail.sender")
+log = logging.getLogger("timetrace.mail.sender")
 
 
 def send_mail(to, subject, text, html_body):
