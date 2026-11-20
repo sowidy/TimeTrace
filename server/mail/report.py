@@ -20,6 +20,7 @@ from datetime import timedelta
 
 import config
 from mail.charts import application_chart
+from mail.display_names import display_name_for
 
 FOOTER_TEXT = (
     "TimeTrace 自动报告。退订：POST /api/v1/subscription/<设备ID>。"
@@ -80,8 +81,8 @@ def _visible_apps(summary, limit):
 
 
 def _app_label(app):
-    """优先用显示名；显示名是空的时候退回进程名。"""
-    return app.get("display_name") or app.get("app_name") or "(未知)"
+    """优先用显示名；显示名是空的时候退回进程名；丑进程名走美化映射。"""
+    return display_name_for(app.get("app_name"), app.get("display_name"))
 
 
 def _pct(seconds, total):

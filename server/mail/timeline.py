@@ -5,6 +5,7 @@ import html
 import math
 
 from mail.colors import color_map
+from mail.display_names import display_name_for
 from mail import chart_theme as theme
 
 WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
@@ -76,7 +77,7 @@ def render(summary, rows, start, end, readiness=()):
             data[key].append(row)
     spans_by_day = {key: build_spans(value) for key, value in data.items()}
     total = sum(s["seconds"] for spans in spans_by_day.values() for s in spans)
-    names = {r["app_name"]: r.get("display_name") or r["app_name"] for r in summary.get("apps", [])}
+    names = {r["app_name"]: display_name_for(r["app_name"], r.get("display_name")) for r in summary.get("apps", [])}
     colors = color_map(list(names) + [r["app_name"] for value in data.values() for r in value])
     complete = {(str(r["day"]), r["kind"]) for r in readiness if r["complete"]}
     text = [heading]

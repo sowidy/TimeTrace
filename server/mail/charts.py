@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 import config
 from mail.colors import color_map
+from mail.display_names import display_name_for
 from mail import chart_theme as theme
 from mail.site_categories import CATEGORIES, totals as category_totals
 from mail.site_names import names_for_hosts, names_for_rows as site_names_for_rows
@@ -313,7 +314,7 @@ def _encode_png(image):
 
 def application_chart(summary, start, end):
     apps = summary.get("apps") or []
-    names = {a["app_name"]: a.get("display_name") or a["app_name"] for a in apps}
+    names = {a["app_name"]: display_name_for(a["app_name"], a.get("display_name")) for a in apps}
     limit = max(1, min(12, config.MAIL_CHART_SERIES))
     # Keep old row caps useful for text-only readers and explicit small settings.
     if config.MAIL_MAX_APPS > 0:
@@ -442,7 +443,7 @@ def timeline_segments(summary, app_intervals, site_intervals, day):
     last = min(86400, max(end for spans in app_spans.values() for _, end in spans))
     if last <= first:
         return [], 0, 0
-    names = {app["app_name"]: app.get("display_name") or app["app_name"]
+    names = {app["app_name"]: display_name_for(app["app_name"], app.get("display_name"))
              for app in summary.get("apps") or []}
     site_spans = _spans_by_key(site_intervals, day, "host")
     site_names = names_for_hosts(list(site_spans))
@@ -997,7 +998,7 @@ def application_gantt_chart(summary, interval_rows, day, overlap_by_app=None, so
     apps = summary.get("apps") or []
     rows = [{"day": str(day), "app_name": app["app_name"], "seconds": app["seconds"]}
             for app in apps if float(app.get("seconds") or 0) > 0]
-    names = {app["app_name"]: app.get("display_name") or app["app_name"] for app in apps}
+    names = {app["app_name"]: display_name_for(app["app_name"], app.get("display_name")) for app in apps}
     max_visible = min(40, config.MAIL_MAX_APPS) if config.MAIL_MAX_APPS > 0 else 40
     return website_gantt_chart(rows, interval_rows, day, key="app_name", title="软件使用时段和时长",
                                noun="软件", chart_style="application-gantt", display_names=names,

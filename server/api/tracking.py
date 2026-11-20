@@ -289,3 +289,127 @@ def read_merged_timeline(user_key: UUID, day: date | None = None,
         "last_second": last,
         "total_seconds": summary.get("total_seconds", 0),
     }
+
+
+def build_weekly_heatmap(start, end, named_summaries, app_intervals,
+                         site_rows, site_hours, readiness):
+    """Pure payload builder for GET /api/v1/weekly-heatmap (no DB here).
+
+    Reuses the weekly mail's models verbatim: the app heatmap goes through
+    the same union-bins path as the merged mail (intervals from every
+    device are unioned per app, then split into 15-minute bins, and
+    daily_apps is replaced with the bin-derived totals so the model's
+    per-day validation compares like with like — raw per-device bins
+    would double-count any app both devices ran at once). The web
+    heatmap extends the mail's plain per-device rows, exactly as the
+    merged mail does.
+    """
+    from mail import charts as mail_charts
+    from mail import merge as mail_merge
+    from mail.display_names import display_name_for
+
+    days = [start + timedelta(days=i) for i in range(7)]
+    merged = mail_merge.merge_app_summaries(named_summaries)
+    union_intervals = mail_merge.union_intervals_by_app(app_intervals)
+    union_bins = mail_merge.union_bins_from_intervals(union_intervals)
+    if merged is not None and union_bins:
+        merged = dict(merged)
+        merged["daily_apps"] = mail_merge.daily_apps_from_bins(union_bins)
+    if merged is None:
+        app_buckets = [None] * 7
+        names = {}
+    else:
+        _, app_buckets = mail_charts.application_hourly_model(
+            merged, union_bins, start, end, readiness)
+        names = {a["app_name"]: display_name_for(a["app_name"], a.get("display_name"))
+                 for a in merged.get("apps") or []}
+    _, web_buckets = mail_charts.website_hourly_model(
+        site_rows, site_hours, start, end, readiness)
+
+    def section(buckets, top_of):
+        max_seconds = max(
+            (sum(hour.values()) for day in buckets if day is not None for hour in day),
+            default=0)
+        out_days = []
+        for day_buckets in buckets:
+            if day_buckets is None:
+                out_days.append(None)
+                continue
+            cells = []
+            for hour in day_buckets:
+                total = sum(hour.values())
+                cells.append({"seconds": round(float(total), 1),
+                              "top": top_of(hour) if total > 0 else ""})
+            out_days.append(cells)
+        return {"max_seconds": round(float(max_seconds), 1), "days": out_days}
+
+    def app_top(hour):
+        if not hour:
+            return ""
+        top = max(hour, key=hour.get)
+        return names.get(top) or display_name_for(top, "")
+
+    def web_top(hour):
+        return max(hour, key=hour.get) if hour else ""
+
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "days": [d.isoformat() for d in days],
+        "app": section(app_buckets, app_top),
+        "web": section(web_buckets, web_top),
+    }
+
+
+@router.get("/api/v1/weekly-heatmap/{user_key}")
+def read_weekly_heatmap(user_key: UUID, end: date | None = None,
+                        authorization: str = Header(default="")):
+    """The weekly mail's two heatmaps as data, for the Android app.
+
+    Same auth and mailbox device lookup as the merged timeline: all
+    devices sharing the caller's mailbox contribute. ``end`` defaults to
+    today; the window is the 7 days ending on ``end`` (same arithmetic
+    as mail.report.week_range). A week with no app data returns all-null
+    app days instead of 404, and likewise for the web heatmap — the app
+    shows an empty state rather than an error.
+    """
+    authenticate(user_key, authorization)
+    end = end or date.today()
+    start = end - timedelta(days=6)
+    me = users.get_user(str(user_key))
+    email = (me or {}).get("email") or ""
+    devices = []
+    if email:
+        with db_conn.connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT user_key, hostname, platform, created_at FROM users"
+                    " WHERE email = %s ORDER BY created_at ASC",
+                    (email,),
+                )
+                devices = [dict(r) for r in cur.fetchall()]
+    if not devices:
+        devices = [me] if me else []
+    from db import tracking as track_store, usage_records
+    from mail import merge as mail_merge
+
+    named_summaries = []
+    app_intervals, site_rows, site_hours, readiness = [], [], [], []
+    for device in devices:
+        key = str(device["user_key"])
+        try:
+            summary = usage_records.get_range_summary(key, start, end)
+        except Exception:
+            summary = None
+        if summary:
+            named_summaries.append((mail_merge.device_label(device), summary))
+        try:
+            app_intervals.extend(track_store.read_range(
+                "app_intervals", key, start, end))
+            site_rows.extend(track_store.read_range("web", key, start, end))
+            site_hours.extend(track_store.read_range("web_hourly", key, start, end))
+            readiness.extend(track_store.readiness(key, start, end))
+        except Exception:
+            pass
+    return build_weekly_heatmap(start, end, named_summaries, app_intervals,
+                                site_rows, site_hours, readiness)

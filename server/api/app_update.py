@@ -21,14 +21,19 @@ VERSION_FILE = os.path.join(SERVER_DIR, "app-version.json")
 STATIC_DIR = os.path.join(SERVER_DIR, "static")
 
 
-def _load_version():
-    if not os.path.exists(VERSION_FILE):
+# Dayflow 日记应用：版本信息存在 server/dayflow-version.json，APK 在
+# server/static/ 下。接口与时迹应用同款（版本号 + 下载），互不干扰。
+DAYFLOW_VERSION_FILE = os.path.join(SERVER_DIR, "dayflow-version.json")
+
+
+def _load_version(version_file=VERSION_FILE):
+    if not os.path.exists(version_file):
         raise HTTPException(status_code=404, detail="未发布过应用版本")
     try:
-        with open(VERSION_FILE, "r", encoding="utf-8") as f:
+        with open(version_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
-        log.exception("读取 app-version.json 失败")
+        log.exception("读取 %s 失败", version_file)
         raise HTTPException(status_code=500, detail="版本信息损坏")
     for key in ("version_code", "version_name", "apk_url", "apk_file"):
         if key not in data:
@@ -54,6 +59,38 @@ def app_version():
 def app_download():
     """下载最新 APK。文件名来自 app-version.json 的 apk_file。"""
     data = _load_version()
+    apk_file = data["apk_file"]
+    # 只允许 static/ 下的文件，防止路径穿越。
+    path = os.path.abspath(os.path.join(STATIC_DIR, apk_file))
+    if not path.startswith(os.path.abspath(STATIC_DIR) + os.sep):
+        raise HTTPException(status_code=400, detail="非法文件名")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="APK 文件不存在")
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename=os.path.basename(path),
+    )
+
+
+@router.get("/api/v1/dayflow-version")
+def dayflow_version():
+    """返回 Dayflow 最新版本。"""
+    data = _load_version(DAYFLOW_VERSION_FILE)
+    return {
+        "version_code": data["version_code"],
+        "version_name": data["version_name"],
+        "apk_url": data["apk_url"],
+        "changelog": data.get("changelog", ""),
+        "apk_size": data.get("apk_size", 0),
+        "sha256": data.get("sha256", ""),
+    }
+
+
+@router.get("/api/v1/dayflow-download")
+def dayflow_download():
+    """下载 Dayflow 最新 APK。文件名来自 dayflow-version.json 的 apk_file。"""
+    data = _load_version(DAYFLOW_VERSION_FILE)
     apk_file = data["apk_file"]
     # 只允许 static/ 下的文件，防止路径穿越。
     path = os.path.abspath(os.path.join(STATIC_DIR, apk_file))

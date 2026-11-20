@@ -143,8 +143,9 @@ class TestBuildMessage(unittest.TestCase):
         # 9000 / 13500 = 66.7%
         self.assertIn("66.7%", text)
         self.assertIn("启动 12 次", text)
-        # display_name 为空时要退回进程名
-        self.assertIn("wechat.exe", text)
+        # display_name 为空时要退回进程名（进程名去掉 .exe 后显示）
+        self.assertIn("wechat — 10 分", text)
+        self.assertNotIn("wechat.exe", text)
         self.assertIn(report.FOOTER_TEXT, text)
 
     def test_device_name_shown_only_when_known(self):
@@ -761,7 +762,8 @@ class TestBuildWeeklyMessage(unittest.TestCase):
         self.assertIn("5 小时", text)              # 18000 秒
         self.assertIn("66.7%", text)               # 18000 / 27000
         self.assertIn("启动 40 次", text)
-        self.assertIn("wechat.exe", text)          # 显示名为空时退回进程名
+        self.assertIn("wechat — 20 分", text)      # 显示名为空时退回进程名（去掉 .exe）
+        self.assertNotIn("wechat.exe", text)
         self.assertIn(report.FOOTER_TEXT, text)
 
     def test_text_without_hostname_omits_the_device_line(self):

@@ -846,7 +846,7 @@ class TestWinnerTimeline(unittest.TestCase):
         # 24-minute run, so dwrg owns the whole stretch.
         self.assertEqual((first, last), (12 * 3600 + 30 * 60, 13 * 3600 + 6 * 60 - 20))
         self.assertEqual(app_segments, [
-            (12 * 3600 + 30 * 60, 13 * 3600 + 6 * 60 - 20, "dwrg.exe", "dwrg", []),
+            (12 * 3600 + 30 * 60, 13 * 3600 + 6 * 60 - 20, "dwrg.exe", "第五人格", []),
         ])
 
 

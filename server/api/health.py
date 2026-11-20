@@ -50,6 +50,11 @@ def index():
             "GET /api/v1/app-timeline/{user_key}",
             "GET /api/v1/app-intervals/{user_key}",
             "GET /api/v1/merged-timeline/{user_key}",
+            "GET /api/v1/weekly-heatmap/{user_key}?end=YYYY-MM-DD",
+            "GET /api/v1/app-version",
+            "GET /api/v1/app-download",
+            "GET /api/v1/dayflow-version",
+            "GET /api/v1/dayflow-download",
         ],
         "docs": "/docs",
     }

@@ -66,6 +66,11 @@ EXPECTED_ROUTES = [
     ("GET", "/api/v1/app-timeline/{user_key}", "read_timeline"),
     ("GET", "/api/v1/app-intervals/{user_key}", "read_app_intervals"),
     ("GET", "/api/v1/merged-timeline/{user_key}", "read_merged_timeline"),
+    ("GET", "/api/v1/weekly-heatmap/{user_key}", "read_weekly_heatmap"),
+    ("GET", "/api/v1/app-version", "app_version"),
+    ("GET", "/api/v1/app-download", "app_download"),
+    ("GET", "/api/v1/dayflow-version", "dayflow_version"),
+    ("GET", "/api/v1/dayflow-download", "dayflow_download"),
 ]
 
 # 必须校验 X-Admin-Token 的接口。**故意不含** subscription：
