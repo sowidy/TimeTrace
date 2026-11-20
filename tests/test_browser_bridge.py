@@ -48,7 +48,7 @@ class BridgeIntegrationTests(unittest.TestCase):
             QTest.qWait(5)
         self.assertTrue(predicate(), "WebSocket operation timed out")
 
-    def connect(self, origin=None, token=None, auto=False, path="/pctime-browser"):
+    def connect(self, origin=None, token=None, auto=False, path="/timetrace-browser"):
         socket = QWebSocket(origin or "chrome-extension://" + "a" * 32)
         self.sockets.append(socket)
         self.addCleanup(socket.abort)
@@ -93,7 +93,7 @@ class BridgeIntegrationTests(unittest.TestCase):
     def test_bundled_identity_matches_manifest_public_key(self):
         manifest = json.loads((Path(__file__).resolve().parents[1] /
                                "client/browser_extension/chromium/manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["name"], "PcTime 网站使用记录")
+        self.assertEqual(manifest["name"], "TimeTrace 网站使用记录")
         digest = hashlib.sha256(base64.b64decode(manifest["key"], validate=True)).hexdigest()[:32]
         self.assertEqual("".join(chr(97 + int(c, 16)) for c in digest), BUNDLED_EXTENSION_ID)
 

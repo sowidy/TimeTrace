@@ -72,20 +72,20 @@ class TestClientEnvFile(unittest.TestCase):
         frozen / sys.executable / app_data_dir 全部替换掉，免得真去碰
         %APPDATA%（测试不该往用户的用户目录里写东西）。
         """
-        fake_exe = r"C:\Apps\PcTime\PcTime.exe"
-        fake_data = r"C:\Users\x\AppData\Roaming\PcTime"
+        fake_exe = r"C:\Apps\TimeTrace\TimeTrace.exe"
+        fake_data = r"C:\Users\x\AppData\Roaming\TimeTrace"
         with mock.patch.object(sys, "frozen", True, create=True), \
                 mock.patch.object(sys, "executable", fake_exe), \
                 mock.patch.object(paths, "app_data_dir", lambda: fake_data):
-            self.assertEqual(paths.program_dir(), r"C:\Apps\PcTime")
+            self.assertEqual(paths.program_dir(), r"C:\Apps\TimeTrace")
             self.assertEqual(paths.env_file_candidates(),
-                             [r"C:\Apps\PcTime\.env",
+                             [r"C:\Apps\TimeTrace\.env",
                               os.path.join(fake_data, ".env")])
 
     def test_frozen_data_dir_prefers_legacy_database_even_if_new_directory_exists(self):
         with tempfile.TemporaryDirectory() as appdata:
             legacy = os.path.join(appdata, "UsageTracker")
-            current = os.path.join(appdata, "PcTime")
+            current = os.path.join(appdata, "TimeTrace")
             os.makedirs(legacy)
             os.makedirs(current)
             with open(os.path.join(legacy, "usage.db"), "wb") as db:
@@ -97,11 +97,28 @@ class TestClientEnvFile(unittest.TestCase):
                     db.write(b"new database")
                 self.assertEqual(paths.app_data_dir(), current)
 
-    def test_frozen_new_install_uses_pctime_directory(self):
+    def test_frozen_data_dir_prefers_newer_legacy_pctime_over_usagetracker(self):
+        """两个旧目录都有数据库时，取较新的 PcTime（而不是最旧的 UsageTracker）。"""
+        with tempfile.TemporaryDirectory() as appdata:
+            old = os.path.join(appdata, "UsageTracker")
+            mid = os.path.join(appdata, "PcTime")
+            current = os.path.join(appdata, "TimeTrace")
+            os.makedirs(old)
+            os.makedirs(mid)
+            os.makedirs(current)
+            with open(os.path.join(old, "usage.db"), "wb") as db:
+                db.write(b"oldest database")
+            with open(os.path.join(mid, "usage.db"), "wb") as db:
+                db.write(b"middle database")
+            with mock.patch.object(sys, "frozen", True, create=True), \
+                    mock.patch.dict(os.environ, {"APPDATA": appdata}):
+                self.assertEqual(paths.app_data_dir(), mid)
+
+    def test_frozen_new_install_uses_timetrace_directory(self):
         with tempfile.TemporaryDirectory() as appdata:
             with mock.patch.object(sys, "frozen", True, create=True), \
                     mock.patch.dict(os.environ, {"APPDATA": appdata}):
-                self.assertEqual(paths.app_data_dir(), os.path.join(appdata, "PcTime"))
+                self.assertEqual(paths.app_data_dir(), os.path.join(appdata, "TimeTrace"))
 
     def test_no_env_file_returns_none(self):
         """客户端必须能在没有 .env 的情况下照常跑（发出去的包里不带它）。"""
@@ -116,21 +133,23 @@ class TestClientEnvFile(unittest.TestCase):
 
     def test_bad_int_falls_back_instead_of_crashing(self):
         """打包版是 console=False，导入期抛错等于「双击没反应」，用户看不到原因。"""
-        with mock.patch.dict(os.environ, {"PCTIME_TEST_BAD": "abc"}):
-            self.assertEqual(client_config._env_int("PCTIME_TEST_BAD", 7), 7)
-        with mock.patch.dict(os.environ, {"PCTIME_TEST_GOOD": "9"}):
-            self.assertEqual(client_config._env_int("PCTIME_TEST_GOOD", 7), 9)
+        with mock.patch.dict(os.environ, {"TIMETRACE_TEST_BAD": "abc"}):
+            self.assertEqual(client_config._env_int("TIMETRACE_TEST_BAD", 7), 7)
+        with mock.patch.dict(os.environ, {"TIMETRACE_TEST_GOOD": "9"}):
+            self.assertEqual(client_config._env_int("TIMETRACE_TEST_GOOD", 7), 9)
 
     def test_empty_string_counts_as_unset(self):
-        with mock.patch.dict(os.environ, {"PCTIME_TEST_EMPTY": ""}):
-            self.assertEqual(client_config._env("PCTIME_TEST_EMPTY", "兜底"),
+        with mock.patch.dict(os.environ, {"TIMETRACE_TEST_EMPTY": ""}):
+            self.assertEqual(client_config._env("TIMETRACE_TEST_EMPTY", "兜底"),
                              "兜底")
 
     def test_legacy_env_key_is_fallback_but_new_key_wins(self):
         with mock.patch.dict(os.environ, {"USAGETIME_TEST_ALIAS": "old"}, clear=False):
-            self.assertEqual(client_config._env("PCTIME_TEST_ALIAS", "default"), "old")
-            with mock.patch.dict(os.environ, {"PCTIME_TEST_ALIAS": "new"}):
-                self.assertEqual(client_config._env("PCTIME_TEST_ALIAS", "default"), "new")
+            self.assertEqual(client_config._env("TIMETRACE_TEST_ALIAS", "default"), "old")
+            with mock.patch.dict(os.environ, {"PCTIME_TEST_ALIAS": "mid"}):
+                self.assertEqual(client_config._env("TIMETRACE_TEST_ALIAS", "default"), "mid")
+                with mock.patch.dict(os.environ, {"TIMETRACE_TEST_ALIAS": "new"}):
+                    self.assertEqual(client_config._env("TIMETRACE_TEST_ALIAS", "default"), "new")
 
     def test_label_recognises_program_dir(self):
         target = os.path.join(paths.program_dir(), ".env")
@@ -145,8 +164,17 @@ class TestClientEnvFile(unittest.TestCase):
         把这一个函数换掉，正好还原出打包模式下的真实情形
         （exe 在别处、数据在 %APPDATA%）。
         """
+        target = os.path.join(r"C:\Users\x\AppData\Roaming\TimeTrace", ".env")
+        with mock.patch.object(paths, "program_dir", lambda: r"C:\Apps\TimeTrace"), \
+                mock.patch.object(paths, "app_data_dir", lambda: os.path.dirname(target)), \
+                mock.patch.object(client_config, "ENV_FILE", target):
+            self.assertEqual(client_config.env_file_label(),
+                             "%APPDATA%\\TimeTrace\\.env")
+
+    def test_label_recognises_legacy_pctime_dir(self):
+        """旧目录 PcTime 里的 .env，标签要认出来是 PcTime 那份。"""
         target = os.path.join(r"C:\Users\x\AppData\Roaming\PcTime", ".env")
-        with mock.patch.object(paths, "program_dir", lambda: r"C:\Apps\PcTime"), \
+        with mock.patch.object(paths, "program_dir", lambda: r"C:\Apps\TimeTrace"), \
                 mock.patch.object(paths, "app_data_dir", lambda: os.path.dirname(target)), \
                 mock.patch.object(client_config, "ENV_FILE", target):
             self.assertEqual(client_config.env_file_label(),
@@ -186,11 +214,11 @@ class TestClientExampleFile(unittest.TestCase):
 
         **不能**直接断言 ``client_config.SERVER_HOST`` 的当前值：那样用户改了自己
         的 client/.env 之后这条测试就会变红，而改 .env 恰恰是这个功能存在的意义。
-        所以要在一个「没有 .env、也没有 PcTime/旧版环境变量」的干净环境里重新
+        所以要在一个「没有 .env、也没有 TimeTrace/旧版环境变量」的干净环境里重新
         导入一次，验完再导入回来。
         """
         clean = {k: v for k, v in os.environ.items()
-                 if not k.startswith(("PCTIME_", "USAGETIME_"))}
+                 if not k.startswith(("TIMETRACE_", "USAGETIME_"))}
         with mock.patch.dict(os.environ, clean, clear=True), \
                 mock.patch.object(paths, "env_file_candidates", lambda: []):
             importlib.reload(client_config)

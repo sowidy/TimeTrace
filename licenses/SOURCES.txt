@@ -8,7 +8,7 @@ Tai-MIT.txt
 DABIAN-afk-usagetime-NOTICE.txt
   https://github.com/DABIAN-afk/usagetime/blob/0928decb6a576c0276bbd001cf8c615553109fb1/README.md
   README Git blob: 9cde60cb7ed45164174a2a918c4a48040d89e26d
-  PcTime's evidence record, not a claimed upstream-issued full license.
+  TimeTrace's evidence record, not a claimed upstream-issued full license.
 
 LGPL-3.0-only.txt and GPL-3.0-only.txt
   https://github.com/pyside/pyside-setup/blob/dev/LICENSES/LGPL-3.0-only.txt

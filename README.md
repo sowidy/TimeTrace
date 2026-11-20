@@ -1,11 +1,11 @@
-# PcTime
+# TimeTrace
 
 Windows 桌面屏幕使用时间统计工具，帮助你了解每天在各个应用上花费的时间。
 
 客户端基于 [DABIAN-afk/usagetime](https://github.com/DABIAN-afk/usagetime) 重构扩展；
 网站统计设计参考 [Planshit/Tai](https://github.com/Planshit/Tai)。
-本项目仓库为 [sowidy/PcTime](https://github.com/sowidy/PcTime)，与两个上游项目独立维护。
-新构建使用 `PcTime.exe`、`%APPDATA%\PcTime` 和 `PCTIME_*` 配置键。旧版的 `UsageTracker` 数据目录、`USAGETIME_*` 配置键及浏览器连接路径仍可兼容读取，升级不会自动搬迁数据库。
+本项目仓库为 [sowidy/TimeTrace](https://github.com/sowidy/TimeTrace)，与两个上游项目独立维护。
+新构建使用 `TimeTrace.exe`、`%APPDATA%\TimeTrace` 和 `TIMETRACE_*` 配置键。旧版的 `UsageTracker` 数据目录、`USAGETIME_*` 配置键及浏览器连接路径仍可兼容读取，升级不会自动搬迁数据库。
 已有部署的数据库名与账号无需改名；只需让服务端配置继续指向原库，详见[升级说明](server/deploy/README.md#更新已有服务器)。
 来源、许可证及尚待确认的许可事项见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
@@ -16,7 +16,7 @@ Windows 桌面屏幕使用时间统计工具，帮助你了解每天在各个应
 项目分两半，各自能独立工作：
 
 - **客户端**（`client/`）—— PySide6 桌面程序，采集本机使用时长，打包成
-  `PcTime.exe`。**不依赖服务端也能完整使用**。详见 **[client/README.md](client/README.md)**
+  `TimeTrace.exe`。**不依赖服务端也能完整使用**。详见 **[client/README.md](client/README.md)**
 - **服务端**（`server/`）—— FastAPI + MySQL，接收客户端上传的数据并按订阅发报告邮件。
   详见 **[server/README.md](server/README.md)**
 
@@ -87,8 +87,8 @@ Windows 桌面屏幕使用时间统计工具，帮助你了解每天在各个应
 ## 目录结构
 
 ```
-PcTime/
-├── client/    客户端（打包成 PcTime.exe）→ client/README.md
+TimeTrace/
+├── client/    客户端（打包成 TimeTrace.exe）→ client/README.md
 ├── server/    FastAPI 服务端（部署到云服务器）  → server/README.md
 └── tests/     两边共用的单元测试
 ```
@@ -104,8 +104,8 @@ PcTime/
 
 ### 方式一：下载使用
 
-本项目发行物以 [sowidy/PcTime Releases](https://github.com/sowidy/PcTime/releases) 为准。
-如该页面提供 Windows 包，解压后运行 `PcTime.exe`，无需安装 Python 环境。
+本项目发行物以 [sowidy/TimeTrace Releases](https://github.com/sowidy/TimeTrace/releases) 为准。
+如该页面提供 Windows 包，解压后运行 `TimeTrace.exe`，无需安装 Python 环境。
 上游项目的发行包不包含本项目新增的同步、网站统计和邮件功能。
 
 ### 方式二：从源码运行
@@ -114,8 +114,8 @@ PcTime/
 服务端使用 [独立部署说明](server/deploy/README.md)；以下命令用于运行桌面客户端。
 
 ```bash
-git clone https://github.com/sowidy/PcTime.git
-cd PcTime
+git clone https://github.com/sowidy/TimeTrace.git
+cd TimeTrace
 pip install -r client/requirements.txt
 python client/main.py
 ```
@@ -133,7 +133,7 @@ python tools/generate_icon.py
 pyinstaller app.spec --clean
 ```
 
-打包产物位于 `client/dist/PcTime/`，也可以直接双击 `client/build.bat` 一键完成。
+打包产物位于 `client/dist/TimeTrace/`，也可以直接双击 `client/build.bat` 一键完成。
 打包注意事项见 [client/README.md](client/README.md#方式三自行打包)。
 
 ### 服务端
@@ -172,7 +172,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000
 **本机的数据：**
 
 - 数据存在本地 SQLite 数据库里（源码模式在 `client/usage.db`，打包模式在
-  `%APPDATA%\PcTime\usage.db`），随时可删
+  `%APPDATA%\TimeTrace\usage.db`），随时可删
 - 采集的内容是「哪个应用在什么时候用了多久」，来自前台窗口句柄和进程名
 - **不**记录键盘输入内容
 - **不**截取屏幕

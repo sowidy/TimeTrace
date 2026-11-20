@@ -118,10 +118,10 @@ class TestParseSendTime(unittest.TestCase):
 
     def test_bad_value_falls_back_instead_of_raising(self):
         # 配置写错不该让服务起不来 —— 退回默认值，日志里有告警
-        with self.assertLogs("pctime.mail.scheduler", level="WARNING") as caught:
+        with self.assertLogs("timetrace.mail.scheduler", level="WARNING") as caught:
             self.assertEqual(scheduler.parse_send_time("不存在的时刻"),
                              scheduler.DEFAULT_SEND_TIME)
-        self.assertIn("PCTIME_MAIL_TIME", "\n".join(caught.output))
+        self.assertIn("TIMETRACE_MAIL_TIME", "\n".join(caught.output))
 
     def test_empty_value_falls_back(self):
         self.assertEqual(scheduler.parse_send_time(""), scheduler.DEFAULT_SEND_TIME)

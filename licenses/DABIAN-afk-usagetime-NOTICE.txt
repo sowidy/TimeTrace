@@ -11,10 +11,10 @@ Verbatim license declaration in the upstream README:
 
 MIT
 
-PcTime's desktop client is derived from this project, including its local
+TimeTrace's desktop client is derived from this project, including its local
 application tracking, storage, UI, tray and packaging foundation. Existing
 author attribution and any subsequently identified file-level notices must
-be retained. The PcTime copyright notice applies to PcTime contributions and
+be retained. The TimeTrace copyright notice applies to TimeTrace contributions and
 does not transfer ownership of the upstream work.
 
 At this revision, no standalone LICENSE, LICENSE.txt, LICENSE.md or lowercase
@@ -22,7 +22,7 @@ license file was found. No upstream copyright year or holder notice was
 found in the reviewed declaration. This document records the available
 evidence; it is not an upstream-issued license text or permission letter.
 
-The repository's MIT LICENSE supplies the standard MIT terms for PcTime
+The repository's MIT LICENSE supplies the standard MIT terms for TimeTrace
 contributions. It cannot cure missing authorization for upstream code or
 artwork. Before relying on a fully documented upstream grant for a public
 binary release, obtain the upstream copyright/license notice or explicit

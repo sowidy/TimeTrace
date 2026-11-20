@@ -19,12 +19,14 @@ class AutostartTests(unittest.TestCase):
         registry_key = MagicMock()
         registry_key.__enter__.return_value = registry_key
         with patch.object(autostart.winreg, "OpenKey", return_value=registry_key), \
-                patch.object(autostart, "_get_command", return_value='"C:/Apps/PcTime.exe"'), \
+                patch.object(autostart, "_get_command", return_value='"C:/Apps/TimeTrace.exe"'), \
                 patch.object(autostart.winreg, "SetValueEx") as set_value, \
                 patch.object(autostart.winreg, "DeleteValue") as delete_value:
             autostart.enable_autostart()
-        self.assertEqual(set_value.call_args.args[1], "PcTime")
-        delete_value.assert_called_once_with(registry_key, "UsageTracker")
+        self.assertEqual(set_value.call_args.args[1], "TimeTrace")
+        self.assertEqual(
+            [c.args for c in delete_value.call_args_list],
+            [(registry_key, "PcTime"), (registry_key, "UsageTracker")])
 
     def test_migrate_legacy_entry_for_frozen_client(self):
         registry_key = MagicMock()

@@ -144,8 +144,12 @@ class StorageDateTests(unittest.TestCase):
             "2026-08-10T10:00:00", "2026-08-10T10:01:00", 60.0,
         )
         storage.record_fragment(
-            "pctime.exe", "PcTime", "C:/PcTime.exe",
+            "timetrace.exe", "TimeTrace", "C:/TimeTrace.exe",
             "2026-08-10T10:01:00", "2026-08-10T10:02:00", 60.0,
+        )
+        storage.record_fragment(
+            "pctime.exe", "PcTime", "C:/PcTime.exe",
+            "2026-08-10T10:02:00", "2026-08-10T10:03:00", 60.0,
         )
 
         storage.init_db()  # init_db 里会执行清理

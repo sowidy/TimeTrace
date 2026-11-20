@@ -56,7 +56,7 @@ class DashboardUiTests(unittest.TestCase):
 
     def test_website_timeline_is_embedded_and_follows_main_date(self):
         today = date.today()
-        self.assertTrue(self.ui.APP_TITLE.startswith("PcTime"))
+        self.assertTrue(self.ui.APP_TITLE.startswith("TimeTrace"))
         self.record(today, "today.example")
         self.record(today - timedelta(days=1), "yesterday.example", hour=14)
         window = self.dashboard()

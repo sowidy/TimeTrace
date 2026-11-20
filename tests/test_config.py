@@ -1,7 +1,7 @@
 """server/config.py 的 .env 读取测试。
 
 只测纯函数，外加「ENV_FILE 有没有落在对的目录」这类元信息。**刻意不去改真的
-os.environ**：测试进程里塞一个 PCTIME_* 出去，会顺着 setdefault 污染后面
+os.environ**：测试进程里塞一个 TIMETRACE_* 出去，会顺着 setdefault 污染后面
 导入 config 的其它测试，而这种失败看起来和 .env 毫无关系，最难查。
 apply_env 允许传入自己的 dict，就是为了能这样测。
 """
@@ -109,7 +109,7 @@ class TestEnvFile(unittest.TestCase):
             source = f.read()
         for key in keys:
             with self.subTest(key=key):
-                canonical = "PCTIME_" + key[len("USAGETIME_"):] if key.startswith("USAGETIME_") else key
+                canonical = "TIMETRACE_" + key[len("USAGETIME_"):] if key.startswith("USAGETIME_") else key
                 self.assertIn('"%s"' % canonical, source,
                               "%s 里的 %s 在 config.py 里查不到，可能是键名写错了"
                               % (os.path.basename(path), key))
@@ -127,15 +127,17 @@ class TestPasswordHasNoHardcodedDefault(unittest.TestCase):
         """整条链走一遍：.env 文本 → parse_env_text → apply_env → _env。"""
         env = {}
         config.apply_env(
-            config.parse_env_text("PCTIME_DB_PASSWORD=s3cret # 注释"), env)
+            config.parse_env_text("TIMETRACE_DB_PASSWORD=s3cret # 注释"), env)
         with mock.patch.dict(os.environ, env):
-            self.assertEqual(config._env("PCTIME_DB_PASSWORD", ""), "s3cret")
+            self.assertEqual(config._env("TIMETRACE_DB_PASSWORD", ""), "s3cret")
 
     def test_legacy_key_remains_supported_but_new_key_takes_priority(self):
         with mock.patch.dict(os.environ, {"USAGETIME_TEST_ALIAS": "old"}):
-            self.assertEqual(config._env("PCTIME_TEST_ALIAS", "default"), "old")
-            with mock.patch.dict(os.environ, {"PCTIME_TEST_ALIAS": "new"}):
-                self.assertEqual(config._env("PCTIME_TEST_ALIAS", "default"), "new")
+            self.assertEqual(config._env("TIMETRACE_TEST_ALIAS", "default"), "old")
+            with mock.patch.dict(os.environ, {"PCTIME_TEST_ALIAS": "mid"}):
+                self.assertEqual(config._env("TIMETRACE_TEST_ALIAS", "default"), "mid")
+                with mock.patch.dict(os.environ, {"TIMETRACE_TEST_ALIAS": "new"}):
+                    self.assertEqual(config._env("TIMETRACE_TEST_ALIAS", "default"), "new")
 
     def test_config_source_has_no_literal_password(self):
         """密码不该再有写死的默认值 —— 有的话 .env 就成了摆设。"""

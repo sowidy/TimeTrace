@@ -134,7 +134,7 @@ class TestServiceVersion(unittest.TestCase):
         from api.health import index
 
         body = index()
-        self.assertEqual(body["service"], "pctime-server")
+        self.assertEqual(body["service"], "timetrace-server")
         self.assertEqual(body["version"], SERVICE_VERSION)
 
     def test_index_endpoint_list_matches_route_table(self):
