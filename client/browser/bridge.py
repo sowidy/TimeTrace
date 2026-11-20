@@ -32,7 +32,7 @@ class BrowserBridge(QObject):
 
     def __init__(self, parent=None, port=8909):
         super().__init__(parent)
-        self.server = QWebSocketServer("PcTime", QWebSocketServer.NonSecureMode, self)
+        self.server = QWebSocketServer("TimeTrace", QWebSocketServer.NonSecureMode, self)
         self.server.setMaxPendingConnections(8)
         self.server.newConnection.connect(self._accept)
         self.activity.connect(self._activity)
@@ -143,7 +143,7 @@ class BrowserBridge(QObject):
             origin = socket.origin()
             extension_id = origin.removeprefix("chrome-extension://")
             if (len(self.clients) >= 8 or socket.requestUrl().path() not in
-                    ("/pctime-browser", "/usagetime-browser")
+                    ("/timetrace-browser", "/pctime-browser", "/usagetime-browser")
                     or not origin.startswith("chrome-extension://")
                     or not re.fullmatch(r"[a-p]{32}", extension_id)
                     or extension_id not in [x.strip() for x in allowed]):

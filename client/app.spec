@@ -93,7 +93,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PcTime',
+    name='TimeTrace',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -112,11 +112,11 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='PcTime',
+    name='TimeTrace',
 )
 
 # Keep only extension runtime files next to the executable, where users can load it.
-_extension_output = os.path.join(DISTPATH, 'PcTime', 'browser-extension')
+_extension_output = os.path.join(DISTPATH, 'TimeTrace', 'browser-extension')
 os.makedirs(_extension_output, exist_ok=True)
 for _filename in ('manifest.json', 'options.html', 'options.js', 'protocol.js',
                   'service-worker.js', 'README.md'):
@@ -128,7 +128,7 @@ shutil.copy2(os.path.join(_SPEC_DIR, 'browser_extension', 'chromium', 'PRIVACY.m
 # Preserve reference-project notices and the licenses of the actual build dependencies.
 sys.path.insert(0, os.path.join(_SPEC_DIR, 'tools'))
 from collect_licenses import stage
-stage(Path(DISTPATH) / 'PcTime', ('PySide6', 'Pillow', 'psutil', 'pywin32', 'PyInstaller'))
+stage(Path(DISTPATH) / 'TimeTrace', ('PySide6', 'Pillow', 'psutil', 'pywin32', 'PyInstaller'))
 for _legal_name in ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md'):
     shutil.copy2(os.path.join(_SPEC_DIR, 'browser_extension', 'chromium', _legal_name),
                  os.path.join(_extension_output, _legal_name))

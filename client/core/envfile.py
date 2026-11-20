@@ -14,8 +14,8 @@ exe」上才暴露，源码模式反而一切正常。几十行稳定的解析�
     path = load_env()
 
 支持的写法：
-    KEY=value          PCTIME_SERVER_HOST=127.0.0.1
-    export KEY=value   export PCTIME_SERVER_HOST=127.0.0.1
+    KEY=value          TIMETRACE_SERVER_HOST=127.0.0.1
+    export KEY=value   export TIMETRACE_SERVER_HOST=127.0.0.1
     KEY="value"        双引号：保留空格，认 \\n \\t \\\\ \\" 转义
     KEY='value'        单引号：原样保留，一个转义都不做
     # 注释、空行
@@ -85,7 +85,7 @@ def apply_env(mapping, environ=None):
     """把键值灌进环境变量，**已经存在的键一律不动**。
 
     用 setdefault 而不是 `env[k] = v`：真环境变量优先，这样临时试一个值
-    用 `set PCTIME_SERVER_HOST=...` 仍然有效。
+    用 `set TIMETRACE_SERVER_HOST=...` 仍然有效。
     """
     env = os.environ if environ is None else environ
     for key, value in mapping.items():

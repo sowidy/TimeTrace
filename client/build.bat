@@ -20,7 +20,7 @@ rem %~dp0 is the folder containing this .bat file, with a trailing backslash.
 cd /d "%~dp0"
 
 echo ========================================
-echo   PcTime - Build Script
+echo   TimeTrace - Build Script
 echo ========================================
 echo.
 
@@ -47,14 +47,14 @@ echo Generating app icon...
 %PY% tools\generate_icon.py
 echo.
 
-rem If a previous build is still running, its exe holds dist\PcTime\ and
+rem If a previous build is still running, its exe holds dist\TimeTrace\ and
 rem NOTHING can delete that folder -- rmdir fails silently, and PyInstaller
 rem then refuses to write into a non-empty output dir. --noconfirm (below)
 rem only handles the "directory not empty" case, not a locked file, so warn
 rem about it up front instead of letting the build fail with a confusing error.
-tasklist /fi "imagename eq PcTime.exe" 2>nul | find /i "PcTime.exe" >nul
+tasklist /fi "imagename eq TimeTrace.exe" 2>nul | find /i "TimeTrace.exe" >nul
 if not errorlevel 1 (
-    echo WARNING: PcTime.exe is running.
+    echo WARNING: TimeTrace.exe is running.
     echo           Close it first, or the build will fail.
     echo.
 )
@@ -64,7 +64,7 @@ if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 
 rem Build.
-rem --noconfirm: let PyInstaller clear dist\PcTime\ itself. Without it,
+rem --noconfirm: let PyInstaller clear dist\TimeTrace\ itself. Without it,
 rem a leftover (non-empty) output dir makes PyInstaller abort with
 rem "The output directory ... is not empty".
 echo Building with PyInstaller...
@@ -75,22 +75,22 @@ rem Check BOTH the exit code and the artifact. Checking only "does the exe
 rem exist" is not enough: a stale exe from an earlier build makes the script
 rem report SUCCESS even when this build never produced anything.
 set "BUILD_OK=0"
-if not errorlevel 1 if exist "dist\PcTime\PcTime.exe" set "BUILD_OK=1"
+if not errorlevel 1 if exist "dist\TimeTrace\TimeTrace.exe" set "BUILD_OK=1"
 
 if "%BUILD_OK%"=="1" (
     echo ========================================
     echo   Build SUCCESS!
-    echo   Output: client\dist\PcTime\
+    echo   Output: client\dist\TimeTrace\
     echo ========================================
     echo.
-    echo To distribute: zip the client\dist\PcTime folder
+    echo To distribute: zip the client\dist\TimeTrace folder
 ) else (
     echo ========================================
     echo   Build FAILED!  ^(see the PyInstaller output above^)
     echo ========================================
     echo.
     echo Common causes:
-    echo   - PcTime.exe is still running ^(see the warning above^)
+    echo   - TimeTrace.exe is still running ^(see the warning above^)
     echo   - a missing module: add it to hiddenimports in app.spec
 )
 

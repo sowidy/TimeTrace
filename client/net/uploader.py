@@ -300,7 +300,7 @@ def _post_json(url, payload, timeout):
         method="POST",
         headers={
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": f"PcTime/{config.CLIENT_VERSION}",
+            "User-Agent": f"TimeTrace/{config.CLIENT_VERSION}",
         },
     )
     try:

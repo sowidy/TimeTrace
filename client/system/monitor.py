@@ -190,7 +190,7 @@ _IGNORED = {
     "systemsettings.exe", "searchapp.exe", "startmenuexperiencehost.exe",
     "runtimebroker.exe", "sihost.exe", "fontdrvhost.exe",
     "dwm.exe", "csrss.exe",
-    "pctime.exe", "usagetracker.exe", "usagetime.exe",  # 含旧版进程名，避免统计自己
+    "timetrace.exe", "pctime.exe", "usagetracker.exe", "usagetime.exe",  # 含旧版进程名，避免统计自己
 }
 
 

@@ -1,4 +1,4 @@
-# 客户端依赖（打包成 PcTime.exe 的那一侧）。
+# 客户端依赖（打包成 TimeTrace.exe 的那一侧）。
 # 服务端依赖见 ../server/requirements.txt，两边不要混装。
 PySide6
 pywin32

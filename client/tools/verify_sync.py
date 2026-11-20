@@ -23,7 +23,7 @@ def main():
     from net import uploader, tracking_upload
     config.SERVER_URL = args.url
     config.REQUEST_TIMEOUT, config.RETRY_COUNT = 1, 0
-    with tempfile.TemporaryDirectory(prefix="pctime-client-verify-") as temp:
+    with tempfile.TemporaryDirectory(prefix="timetrace-client-verify-") as temp:
         storage.DB_PATH = str(Path(temp) / "usage.db")
         storage.init_db()
         day = beijing_today() - timedelta(days=1)

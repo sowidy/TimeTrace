@@ -9,7 +9,7 @@
 1. **真正的环境变量** —— 命令行 set、快捷方式里塞的环境变量；
 2. **`.env` 文件** —— 候选位置见 core/paths.py 的 env_file_candidates()：
    先找程序目录（打包后是 exe 旁边，跑源码时是 client/），找不到再退到
-   数据目录（%APPDATA%\\PcTime\\；旧安装仍能读取原目录）；
+   数据目录（%APPDATA%\\TimeTrace\\；旧安装仍能读取原目录）；
 3. **下面代码里的默认值**。
 
 ⚠️ **没有 .env 是正常情况**：发出去的压缩包里不会带它，客户端必须能这样照常
@@ -42,7 +42,11 @@ def env_file_label():
     if folder == paths.program_dir():
         return "程序目录下的 .env"
     if folder == paths.app_data_dir():
-        return "%APPDATA%\\PcTime\\.env" if folder.endswith("PcTime") else "%APPDATA%\\UsageTracker\\.env"
+        if folder.endswith("TimeTrace"):
+            return "%APPDATA%\\TimeTrace\\.env"
+        if folder.endswith("PcTime"):
+            return "%APPDATA%\\PcTime\\.env"
+        return "%APPDATA%\\UsageTracker\\.env"
     # 正常情况下到不了这里（ENV_FILE 只可能来自那两个候选位置）。
     # 真到了就原样显示，不要编一个可能是错的短标签。
     return ENV_FILE
@@ -55,8 +59,12 @@ def _env(name, default):
     Windows 上很常见，那时候我们想要的是默认值，不是空值。
     """
     value = os.environ.get(name)
-    if (value is None or value == "") and name.startswith("PCTIME_"):
-        value = os.environ.get("USAGETIME_" + name[len("PCTIME_"):])
+    if (value is None or value == "") and name.startswith("TIMETRACE_"):
+        # 兼容旧键：先 TIMETRACE_*，再 PCTIME_*，最后 USAGETIME_*。
+        suffix = name[len("TIMETRACE_"):]
+        value = os.environ.get("PCTIME_" + suffix)
+        if value is None or value == "":
+            value = os.environ.get("USAGETIME_" + suffix)
     return default if value is None or value == "" else value
 
 
@@ -84,15 +92,15 @@ def _env_float(name, default):
 # ── 服务端 ──
 
 # 数据上传的目标服务器。改地址只改这里一处，或者写进 .env 的
-# PCTIME_SERVER_HOST。
-SERVER_HOST = _env("PCTIME_SERVER_HOST", "127.0.0.1")
+# TIMETRACE_SERVER_HOST。
+SERVER_HOST = _env("TIMETRACE_SERVER_HOST", "127.0.0.1")
 
 # 服务端（FastAPI / uvicorn）的监听端口。
 # 注意 3306 是 MySQL 自己的端口，不是这个；服务端跑在 8000。
-SERVER_PORT = _env_int("PCTIME_SERVER_PORT", 8000)
+SERVER_PORT = _env_int("TIMETRACE_SERVER_PORT", 8000)
 
 # Origin/base path only: /api/v1 is appended by endpoint helpers.
-SERVER_URL = _env("PCTIME_SERVER_URL", "")
+SERVER_URL = _env("TIMETRACE_SERVER_URL", "")
 
 # 接口路径。服务端把版本前缀写在路径里（/api/v1/...），
 # 以后接口有不兼容的改动时可以开 /api/v2 而不影响老客户端。
@@ -109,13 +117,13 @@ SUBSCRIPTION_PATH = API_PREFIX + "/subscription"
 
 # 单次请求的超时（秒）。上传的数据量很小（一天几十行），
 # 所以这个值主要是在「服务器不可达」时决定多久放弃，不用给太长。
-REQUEST_TIMEOUT = _env_int("PCTIME_REQUEST_TIMEOUT", 15)
+REQUEST_TIMEOUT = _env_int("TIMETRACE_REQUEST_TIMEOUT", 15)
 
 # 上传失败后的重试次数和退避间隔（秒）。
 # 每次失败后等 RETRY_BACKOFF * 2^n 秒再试，避免服务器刚重启时
 # 所有客户端一起猛冲。
-RETRY_COUNT = _env_int("PCTIME_RETRY_COUNT", 3)
-RETRY_BACKOFF = _env_float("PCTIME_RETRY_BACKOFF", 2.0)
+RETRY_COUNT = _env_int("TIMETRACE_RETRY_COUNT", 3)
+RETRY_BACKOFF = _env_float("TIMETRACE_RETRY_BACKOFF", 2.0)
 
 
 def base_url():
@@ -126,7 +134,7 @@ def base_url():
         parsed = urlsplit(value)
         if (parsed.scheme not in ("http", "https") or not parsed.hostname
                 or parsed.username or parsed.password or parsed.query or parsed.fragment):
-            raise ValueError("PCTIME_SERVER_URL 必须是无凭据、无 query 的 HTTP(S) 根 URL")
+            raise ValueError("TIMETRACE_SERVER_URL 必须是无凭据、无 query 的 HTTP(S) 根 URL")
         parsed.port  # validate port
         if parsed.path.rstrip("/").endswith(API_PREFIX):
             value = value[:-len(API_PREFIX)]
@@ -170,7 +178,7 @@ def subscription_url(user_key):
 # 的是 receipts 里的日期水位线（见 uploader.py）。这里 1 小时检查一次，
 # 是为了让「程序刚开机就把昨天补传上去」这件事尽快发生，
 # 而不是要每小时都传一次。
-UPLOAD_CHECK_INTERVAL = _env_int("PCTIME_UPLOAD_CHECK_INTERVAL", 60 * 60)
+UPLOAD_CHECK_INTERVAL = _env_int("TIMETRACE_UPLOAD_CHECK_INTERVAL", 60 * 60)
 
 # ── 客户端标识 ──
 
@@ -184,4 +192,4 @@ CLIENT_VERSION = "1.0.2"
 
 # 再传一次已经传过的天数（天）。用于容忍「服务端换了库/数据被清了」
 # 这种情况：每次上传会顺带把这几天重传一遍，成本极低但能自愈。
-RESEND_RECENT_DAYS = _env_int("PCTIME_RESEND_RECENT_DAYS", 3)
+RESEND_RECENT_DAYS = _env_int("TIMETRACE_RESEND_RECENT_DAYS", 3)

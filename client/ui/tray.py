@@ -114,7 +114,7 @@ class TrayApp(QSystemTrayIcon):
         self._worker.done.connect(self._on_upload_done)
 
         self.setIcon(_create_tray_icon())
-        self.setToolTip("PcTime · 屏幕时间统计")  # 鼠标悬停在图标上时显示的文字
+        self.setToolTip("TimeTrace · 屏幕时间统计")  # 鼠标悬停在图标上时显示的文字
 
         menu = QMenu()
 

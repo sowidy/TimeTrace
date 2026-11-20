@@ -11,7 +11,7 @@
       跟着客户端代码走，一眼能看到文件。
     * 打包模式（PyInstaller）：sys.frozen 为 True。此时程序目录可能是
       只读的（比如装在 Program Files 下），所以数据和导出结果统一改放到
-      用户目录 %APPDATA%\\PcTime\\ 下；旧安装目录继续可用。
+      用户目录 %APPDATA%\\TimeTrace\\ 下；旧安装目录继续可用。
 
 关于本文件的位置（改目录结构时最容易踩的坑）：
     本文件在 client/core/ 里，比拆分前（src/paths.py）深了一层，所以下面
@@ -26,8 +26,9 @@ import os
 import sys
 
 # 打包后数据目录的文件夹名（放在 %APPDATA% 下面）
-_APP_DIR_NAME = "PcTime"
-_LEGACY_APP_DIR_NAME = "UsageTracker"
+_APP_DIR_NAME = "TimeTrace"
+# 旧目录继续可用：先 PcTime（上一个名字），再 UsageTracker（更早的名字）。
+_LEGACY_APP_DIR_NAMES = ("PcTime", "UsageTracker")
 
 
 def is_frozen():
@@ -53,20 +54,26 @@ def client_dir():
 def app_data_dir():
     """放数据的地方（数据库、导出的 CSV 都在它下面）。
 
-    打包模式：新安装使用 %APPDATA%\\PcTime\\；如果旧目录已有数据，继续使用旧目录。
+    打包模式：新安装使用 %APPDATA%\\TimeTrace\\；如果旧目录已有数据，继续使用旧目录。
     源码模式：client/ 目录本身。
     """
     if is_frozen():
         # os.environ.get 取不到 APPDATA 时退回用户主目录，保证总有个可写的地方
         appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
         d = os.path.join(appdata, _APP_DIR_NAME)
-        legacy = os.path.join(appdata, _LEGACY_APP_DIR_NAME)
+        legacy_dirs = [os.path.join(appdata, name) for name in _LEGACY_APP_DIR_NAMES]
         # 新目录可能因先放 .env 而已存在；只要尚无新数据库，仍以旧数据库为准。
         # 不在运行时搬动 SQLite（包括 WAL），避免升级过程中遗漏未落盘的记录。
-        if os.path.isfile(os.path.join(legacy, "usage.db")) and not os.path.isfile(os.path.join(d, "usage.db")):
-            d = legacy
-        elif not os.path.exists(d) and os.path.exists(legacy):
-            d = legacy
+        # 旧目录按 PcTime → UsageTracker 的顺序找（越新的旧名越优先）。
+        db_legacy = next(
+            (legacy for legacy in legacy_dirs
+             if os.path.isfile(os.path.join(legacy, "usage.db"))
+             and not os.path.isfile(os.path.join(d, "usage.db"))),
+            None)
+        if db_legacy is not None:
+            d = db_legacy
+        elif not os.path.exists(d):
+            d = next((legacy for legacy in legacy_dirs if os.path.exists(legacy)), d)
         os.makedirs(d, exist_ok=True)   # exist_ok=True：已存在不报错
         return d
     return client_dir()

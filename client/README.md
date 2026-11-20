@@ -1,10 +1,10 @@
-# PcTime 客户端
+# TimeTrace 客户端
 
 Windows 桌面端的屏幕使用时间统计程序。采集本机每个应用的前台使用时长，存进本地
 SQLite，按需导出 CSV，并把「应用名 + 使用时长」上传到[自建服务端](../server/README.md)
 用来生成报告邮件。
 
-当前打包程序名为 `PcTime.exe`。**不依赖服务端也能完整工作** —— 只有「上传数据」和
+当前打包程序名为 `TimeTrace.exe`。**不依赖服务端也能完整工作** —— 只有「上传数据」和
 「保存订阅」这两件事需要联网，其余功能全部本地闭环。
 
 > 仓库总览、隐私声明、License 在[根 README](../README.md)。
@@ -57,7 +57,7 @@ HTTPS。网站和应用时段默认不上传，须分别开启对应开关；“
 ## 目录结构
 
 ```
-client/                     客户端（打包成 PcTime.exe）
+client/                     客户端（打包成 TimeTrace.exe）
 ├── main.py                 程序入口
 ├── app.spec                PyInstaller 打包配置
 ├── build.bat               一键打包脚本
@@ -109,14 +109,14 @@ import storage                               # ❌ 老写法，已失效
 
 ### 方式一：下载使用
 
-本项目发行物以 [sowidy/PcTime Releases](https://github.com/sowidy/PcTime/releases) 为准。
-如提供 Windows 压缩包，解压后运行 `PcTime.exe`，无需安装 Python 环境。
+本项目发行物以 [sowidy/TimeTrace Releases](https://github.com/sowidy/TimeTrace/releases) 为准。
+如提供 Windows 压缩包，解压后运行 `TimeTrace.exe`，无需安装 Python 环境。
 
 ### 方式二：从源码运行
 
 ```bash
-git clone https://github.com/sowidy/PcTime.git
-cd PcTime
+git clone https://github.com/sowidy/TimeTrace.git
+cd TimeTrace
 pip install -r client/requirements.txt
 python client/main.py
 ```
@@ -134,7 +134,7 @@ python tools/generate_icon.py
 pyinstaller app.spec --clean
 ```
 
-打包产物位于 `client/dist/PcTime/`。也可以直接双击 `client/build.bat`
+打包产物位于 `client/dist/TimeTrace/`。也可以直接双击 `client/build.bat`
 一键完成（它会自动优先使用仓库根目录下的 `.venv`）。
 
 > ⚠️ 改 `build.bat` 时请**只写英文注释**（保持纯 ASCII）。cmd.exe 是按系统的
@@ -152,7 +152,7 @@ client/data/2026/10/12/weekly_2026-10-12_2026-10-18.csv  每周：整周各应�
 client/data/2026/10/01/monthly_2026-10.csv               每月：整月各应用汇总
 ```
 
-（打包成 exe 运行时，这些文件改放到 `%APPDATA%\PcTime\data\` 下，
+（打包成 exe 运行时，这些文件改放到 `%APPDATA%\TimeTrace\data\` 下，
 因为程序安装目录可能是只读的。数据库同理。）
 
 文件里是各应用的使用时长明细（日期 / 应用名 / 显示名 / 使用时长 / 使用次数），
@@ -203,23 +203,23 @@ client/data/2026/10/01/monthly_2026-10.csv               每月：整月各应�
 `.env` 就行（模板 `client/.env.example`）：
 
 ```ini
-PCTIME_SERVER_HOST=127.0.0.1
-PCTIME_SERVER_PORT=8000
+TIMETRACE_SERVER_HOST=127.0.0.1
+TIMETRACE_SERVER_PORT=8000
 ```
 
 取值顺序**先命中的赢**：真环境变量 → `.env` → 代码里的默认值。
 
-`.env` 放哪：**先找程序旁边，找不到再退到 `%APPDATA%\PcTime\`**。
+`.env` 放哪：**先找程序旁边，找不到再退到 `%APPDATA%\TimeTrace\`**。
 
 从旧版升级时不用手动搬数据库：若 `%APPDATA%\UsageTracker\usage.db` 存在且新目录尚无
 `usage.db`，客户端仍使用整个旧目录（包括导出文件和旧 `.env`）。程序目录旁的 `.env`
-始终优先。配置键推荐改为 `PCTIME_*`；已有 `USAGETIME_*` 仍可读，同名新键优先。
+始终优先。配置键推荐改为 `TIMETRACE_*`；已有 `USAGETIME_*` 仍可读，同名新键优先。
 开机自启和浏览器扩展的旧标识也保留兼容。确认新版本正常运行前不要删除旧目录或旧程序。
 
 | 你怎么跑 | 首选 | 兜底 |
 | --- | --- | --- |
 | 跑源码（`python client/main.py`） | `client/.env` | 同上（两个候选是同一个目录） |
-| 打包版 exe | exe 旁边，也就是解压出来那一层 | `%APPDATA%\PcTime\.env`；旧数据未迁移时为 `%APPDATA%\UsageTracker\.env` |
+| 打包版 exe | exe 旁边，也就是解压出来那一层 | `%APPDATA%\TimeTrace\.env`；旧数据未迁移时为 `%APPDATA%\UsageTracker\.env` |
 
 **实际读的是哪一份，设置页「数据上传」那一块的「配置：」一行会写**，鼠标悬停能看到
 完整路径。客户端没有日志文件，而两个候选位置意味着「明明改了却没生效」几乎总是
@@ -228,12 +228,12 @@ PCTIME_SERVER_PORT=8000
 
 | 配置项 | 含义 | 默认 |
 | --- | --- | --- |
-| `PCTIME_SERVER_URL` | 完整根 URL，优先于 HOST/PORT；支持 HTTPS 和代理路径 | 未设置 |
-| `PCTIME_SERVER_HOST` / `_PORT` | 兼容旧版 HTTP 服务端地址 | `127.0.0.1:8000` |
-| `PCTIME_REQUEST_TIMEOUT` | 单次请求超时（秒） | `15` |
-| `PCTIME_RETRY_COUNT` / `_BACKOFF` | 失败重试次数 / 退避基数（秒） | `3` / `2.0` |
-| `PCTIME_UPLOAD_CHECK_INTERVAL` | 后台多久检查一次该不该上传（秒） | `3600` |
-| `PCTIME_RESEND_RECENT_DAYS` | 每次顺带重传最近几天 | `3` |
+| `TIMETRACE_SERVER_URL` | 完整根 URL，优先于 HOST/PORT；支持 HTTPS 和代理路径 | 未设置 |
+| `TIMETRACE_SERVER_HOST` / `_PORT` | 兼容旧版 HTTP 服务端地址 | `127.0.0.1:8000` |
+| `TIMETRACE_REQUEST_TIMEOUT` | 单次请求超时（秒） | `15` |
+| `TIMETRACE_RETRY_COUNT` / `_BACKOFF` | 失败重试次数 / 退避基数（秒） | `3` / `2.0` |
+| `TIMETRACE_UPLOAD_CHECK_INTERVAL` | 后台多久检查一次该不该上传（秒） | `3600` |
+| `TIMETRACE_RESEND_RECENT_DAYS` | 每次顺带重传最近几天 | `3` |
 
 接口路径（`/api/v1`）和客户端版本号**刻意不可配**：它们是协议和事实，不是某台机器的
 环境差异，理由写在 `client/core/config.py` 的注释里。
@@ -243,7 +243,7 @@ PCTIME_SERVER_PORT=8000
 - **没有 `.env` 是正常情况**，客户端照常跑。发出去的压缩包里不带 `.env`，
   只带 `.env.example` —— 客户端必须能在完全没有它的情况下工作。
 - **改完要重启客户端**才生效（配置是导入期算一次的模块级常量）。
-- **写坏的数值不会让程序起不来**：`PCTIME_SERVER_PORT=abc` 会退回默认值。
+- **写坏的数值不会让程序起不来**：`TIMETRACE_SERVER_PORT=abc` 会退回默认值。
   打包版是 `console=False`，导入期抛异常的表现是「双击了没反应」，用户看不到任何
   原因，所以这里刻意吞掉了转换错误。
 

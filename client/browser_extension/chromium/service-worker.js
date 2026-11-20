@@ -55,7 +55,7 @@ async function refresh() {
 async function connect() {
   await initialized;
   if (socket) return;
-  const ws = new WebSocket("ws://127.0.0.1:8909/pctime-browser");
+  const ws = new WebSocket("ws://127.0.0.1:8909/timetrace-browser");
   socket = ws;
   ws.onopen = () => {
     if (socket === ws) send({type: "hello", protocol: 1, auto_connect: true, token: config.token || "",

@@ -1,7 +1,7 @@
 const byId = id => document.getElementById(id);
 const render = value => {
   byId("status").textContent = value === "connected" ? "已连接，本地网站记录已就绪。"
-    : "等待桌面端连接。请确认已启动新版 PcTime 并开启本地网站统计。";
+    : "等待桌面端连接。请确认已启动新版 TimeTrace 并开启本地网站统计。";
 };
 byId("extension-id").textContent = chrome.runtime.id;
 const saved = await chrome.storage.local.get(["config", "connection_status"]);

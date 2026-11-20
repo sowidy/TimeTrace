@@ -1,7 +1,7 @@
 """数据层：所有数据库读写、以及「应用名归一化」和「时长格式化」都放在这里。
 
 用 SQLite（Python 自带，不需要单独装数据库服务器），整个数据库就是一个
-usage.db 文件，放在程序目录（打包后优先放在 %APPDATA%\\PcTime\\ 下）。
+usage.db 文件，放在程序目录（打包后优先放在 %APPDATA%\\TimeTrace\\ 下）。
 
 一共有 5 张表：
     usage_fragments  原始的「片段」记录，一条 = 某段时间用了某个应用
@@ -264,7 +264,7 @@ def init_db():
         # 旧版本可能把统计器自己的窗口计入使用时间，升级时清理这些记录。
         # 用占位符拼 SQL（而不是直接拼字符串）是防 SQL 注入的标准做法；
         # 这里虽然值写死在代码里，但保持一致的习惯没有坏处。
-        self_apps = ("pctime.exe", "usagetracker.exe", "usagetime.exe")
+        self_apps = ("timetrace.exe", "pctime.exe", "usagetracker.exe", "usagetime.exe")
         placeholders = ",".join("?" for _ in self_apps)  # 生成 "?,?"
         conn.execute(
             f"DELETE FROM usage_fragments WHERE LOWER(app_name) IN ({placeholders})",

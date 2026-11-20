@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "PcTime 网站使用记录",
+  "name": "TimeTrace 网站使用记录",
   "version": "0.1.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzFXHxZ14fV7nhoCSoxDLywULqv145zisLBpDSLI4bHw3+VwDF7wdGvHGo/j7/yc0yZfXk3cpBGO2JTG4OJUA8EGoIacFSNWjOAb6LBIATdK22YqgpRCvXJK2UKgzEr1/3PMbMWoJ93wfJ/xXf5kWjXXaPuemhjwNjKqes/eTJOpAI9OwsyzJ0upje4fQchH+4ctlRY+Ly2GpdSMi592i1ARf7N2qUpEKK0KZBRDsMfm+27zerOLxtfz97rMTvOJy28Ia3dp83f+hLNnRA7Wo580iTUMUXqvKtZ8f1zh0eGIbJsaUZqpVUSoNoMrt2fNMuZZs724v87KxgQ1JkhsLyQIDAQAB",
   "minimum_chrome_version": "116",
-  "description": "配合 PcTime 桌面端，仅统计前台非隐身网页的域名和使用时长。",
+  "description": "配合 TimeTrace 桌面端，仅统计前台非隐身网页的域名和使用时长。",
   "permissions": ["tabs", "storage", "alarms"],
   "background": {"service_worker": "service-worker.js", "type": "module"},
   "options_page": "options.html",
-  "action": {"default_title": "查看 PcTime 连接状态"}
+  "action": {"default_title": "查看 TimeTrace 连接状态"}
 }

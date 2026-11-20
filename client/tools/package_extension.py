@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((SOURCE / "manifest.json").read_text(encoding="utf-8"))
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    archive = args.output_dir / f"PcTime-chromium-{manifest['version']}.zip"
+    archive = args.output_dir / f"TimeTrace-chromium-{manifest['version']}.zip"
     files = [SOURCE / name for name in FILES]
     files.extend(p for p in (SOURCE / "licenses").rglob("*") if p.is_file())
     with ZipFile(archive, "w", ZIP_DEFLATED) as package:

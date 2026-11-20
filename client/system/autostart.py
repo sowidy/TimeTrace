@@ -12,8 +12,8 @@ import os
 import sys
 import winreg
 
-APP_NAME = "PcTime"  # 注册表里的值名称，也是任务管理器「启动」页看到的项
-_LEGACY_APP_NAME = "UsageTracker"
+APP_NAME = "TimeTrace"  # 注册表里的值名称，也是任务管理器「启动」页看到的项
+_LEGACY_APP_NAMES = ("PcTime", "UsageTracker")
 KEY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
@@ -57,17 +57,18 @@ def enable_autostart():
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, KEY_PATH, 0, winreg.KEY_SET_VALUE) as key:
         # REG_SZ 表示普通字符串类型的注册表值
         winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, _get_command())
-        try:
-            winreg.DeleteValue(key, _LEGACY_APP_NAME)
-        except FileNotFoundError:
-            pass
+        for name in _LEGACY_APP_NAMES:
+            try:
+                winreg.DeleteValue(key, name)
+            except FileNotFoundError:
+                pass
 
 
 def disable_autostart():
     """删除自启项。如果本来就不存在，静默忽略（删除是幂等的）。"""
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, KEY_PATH, 0, winreg.KEY_SET_VALUE) as key:
-            for name in (APP_NAME, _LEGACY_APP_NAME):
+            for name in (APP_NAME, *_LEGACY_APP_NAMES):
                 try:
                     winreg.DeleteValue(key, name)
                 except FileNotFoundError:
@@ -77,12 +78,21 @@ def disable_autostart():
 
 
 def migrate_autostart():
-    """打包版首次启动时，将旧启动项指向当前 PcTime.exe。"""
+    """打包版首次启动时，将旧启动项指向当前 TimeTrace.exe。"""
     if not getattr(sys, "frozen", False):
         return
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, KEY_PATH, 0, winreg.KEY_READ) as key:
-            winreg.QueryValueEx(key, _LEGACY_APP_NAME)
+            has_legacy = False
+            for name in _LEGACY_APP_NAMES:
+                try:
+                    winreg.QueryValueEx(key, name)
+                except (FileNotFoundError, OSError):
+                    continue
+                has_legacy = True
+                break
+            if not has_legacy:
+                return
     except (FileNotFoundError, OSError):
         return
     try:

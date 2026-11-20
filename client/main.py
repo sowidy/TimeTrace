@@ -42,7 +42,7 @@ from ui.tray import TrayApp, _create_tray_icon
 
 # 互斥量的名字。带 "Local\\" 前缀表示只在当前用户会话内有效。
 # 同时持有旧版互斥量，避免升级期间新旧两个程序一起统计同一段时间。
-_INSTANCE_MUTEX_NAMES = ("Local\\PcTime", "Local\\DABIAN-afk.UsageTracker")
+_INSTANCE_MUTEX_NAMES = ("Local\\TimeTrace", "Local\\PcTime", "Local\\DABIAN-afk.UsageTracker")
 
 
 def _acquire_single_instance():
@@ -83,7 +83,7 @@ def main():
     migrate_autostart()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("PcTime")
+    app.setApplicationName("TimeTrace")
     # 默认情况下 Qt 在「最后一个窗口关闭」时会退出程序。
     # 本程序关掉仪表盘窗口后还要继续在托盘里统计，所以要关掉这个行为。
     app.setQuitOnLastWindowClosed(False)
