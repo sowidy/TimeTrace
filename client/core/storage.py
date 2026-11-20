@@ -29,6 +29,7 @@ from threading import Lock
 # （DB_PATH 仍保留在这里，因为 tests/test_storage.py 会直接替换这个变量
 # 来指向临时数据库，所以它必须是本模块的属性。）
 from core.paths import db_path as _db_path
+from core.timeutil import beijing_today
 
 
 # 模块级常量：导入本模块时就算好路径。
@@ -436,7 +437,7 @@ def record_fragment(app_name, window_title, exe_path, start_iso, end_iso,
 
 
 def _split_fragment_by_day(fragment):
-    """按本地午夜拆分片段，保证每日统计归属正确。
+    """按北京时间午夜拆分片段，保证每日统计归属正确。
 
     为什么要拆：如果一条记录是 23:59:55 ~ 次日 00:00:05，直接归属到某一天
     就不对了（「今日使用时长」会算错）。拆成两条后，每天各得 5 秒。
@@ -449,7 +450,7 @@ def _split_fragment_by_day(fragment):
     except (KeyError, TypeError, ValueError):
         # 时间格式不对时不能丢数据：原样返回，日期就用今天兜底
         fallback = dict(fragment)
-        fallback["date"] = date.today().isoformat()
+        fallback["date"] = beijing_today().isoformat()
         return [fallback]
 
     if end <= start:
@@ -718,7 +719,7 @@ def _merge_rows(rows, recent_paths=None):
 def get_stats(target_date=None):
     """某一天各应用的使用排行。不传日期就是今天。"""
     if target_date is None:
-        target_date = date.today().isoformat()
+        target_date = beijing_today().isoformat()
     with _get_conn() as conn:
         rows = conn.execute(
             """SELECT LOWER(app_name) as app_name,
@@ -736,7 +737,7 @@ def get_stats(target_date=None):
 def get_daily_total(target_date=None):
     """某一天的总使用秒数（所有应用加一起）。"""
     if target_date is None:
-        target_date = date.today().isoformat()
+        target_date = beijing_today().isoformat()
     with _get_conn() as conn:
         row = conn.execute(
             # COALESCE(..., 0)：当天没有任何记录时 SUM 返回 NULL，
@@ -763,7 +764,7 @@ def get_week_stats(start_date=None):
     返回值固定 7 项（没有数据的那天补 0），这样图表永远画 7 根柱子。
     """
     if start_date is None:
-        start_date = date.today().isoformat()
+        start_date = beijing_today().isoformat()
     d = date.fromisoformat(start_date)
     week_start = d - timedelta(days=6)  # 往前推 6 天 = 共 7 天
     with _get_conn() as conn:
@@ -792,7 +793,7 @@ def get_week_app_stats(start_date=None):
     用于区分「天天用 10 分钟」和「某天集中用了 70 分钟」。
     """
     if start_date is None:
-        start_date = date.today().isoformat()
+        start_date = beijing_today().isoformat()
     d = date.fromisoformat(start_date)
     week_start = d - timedelta(days=6)
     with _get_conn() as conn:
@@ -848,7 +849,7 @@ def get_fragments_for_date(target_date=None, include_idle=False):
     返回的 app_name 已经过归一化处理，可以直接拿去显示或取图标。
     """
     if target_date is None:
-        target_date = date.today().isoformat()
+        target_date = beijing_today().isoformat()
     query = """SELECT app_name, window_title, exe_path,
                       start_time, end_time, duration_seconds, is_idle
                FROM usage_fragments
@@ -946,7 +947,7 @@ def get_hourly_stats(target_date=None):
     出现「某一小时用了 3 小时」这种不可能的值。
     """
     if target_date is None:
-        target_date = date.today().isoformat()
+        target_date = beijing_today().isoformat()
     with _get_conn() as conn:
         rows = conn.execute(
             """SELECT start_time, end_time, duration_seconds, is_idle
@@ -987,7 +988,7 @@ def get_week_hourly_stats(end_date=None):
     数据量很小（一周最多 7 * 24 个数字），没必要在 SQL 层面优化。
     """
     if end_date is None:
-        end_date = date.today().isoformat()
+        end_date = beijing_today().isoformat()
     end = date.fromisoformat(end_date)
     start = end - timedelta(days=6)
     result = [0.0] * 24

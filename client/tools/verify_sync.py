@@ -19,13 +19,14 @@ def main():
     if urlsplit(args.url).hostname != "127.0.0.1":
         parser.error("Verification only permits 127.0.0.1")
     from core import config, storage, site_storage
+    from core.timeutil import beijing_today
     from net import uploader, tracking_upload
     config.SERVER_URL = args.url
     config.REQUEST_TIMEOUT, config.RETRY_COUNT = 1, 0
     with tempfile.TemporaryDirectory(prefix="pctime-client-verify-") as temp:
         storage.DB_PATH = str(Path(temp) / "usage.db")
         storage.init_db()
-        day = date.today() - timedelta(days=1)
+        day = beijing_today() - timedelta(days=1)
         start = datetime.combine(day, time(9))
 
         def record(at):

@@ -18,11 +18,30 @@ import time
 import threading
 import ctypes
 import ctypes.wintypes as wintypes
-from datetime import datetime
+from core.timeutil import beijing_from_timestamp
 
 import win32gui
 import win32process
+import win32api
+import win32con
 import psutil
+
+# ── 媒体活动检测（全屏 / 音频）─────────────────────────────────
+# 看直播、看视频时人可能几分钟不动键鼠，但「在用电脑」是真的。
+# 所以空闲判定除了看键鼠，还要看是不是在放东西：
+#   * 前台窗口是真全屏（视频 / 直播 / 游戏）
+#   * 系统正在出声音（放视频、听歌、看直播）
+# 任一成立就当「在用」，不进空闲。
+# pycaw 是可选依赖：没装时只用全屏检测，音频那条自动关闭，不报错。
+try:
+    from pycaw.pycaw import AudioUtilities, IAudioMeterInformation
+    from comtypes import CLSCTX_ALL
+    _PYCAW_AVAILABLE = True
+except Exception:
+    AudioUtilities = None
+    IAudioMeterInformation = None
+    CLSCTX_ALL = None
+    _PYCAW_AVAILABLE = False
 
 from core.storage import (
     record_fragments_batch, get_ignored_apps, get_app_rules, get_setting,
@@ -89,6 +108,78 @@ def _active_time_cutoff(now, idle_seconds, idle_threshold):
     return now - idle_seconds + idle_threshold
 
 
+def _is_foreground_fullscreen():
+    """前台窗口是不是「真全屏」。
+
+    真全屏 = 盖满它所在的那块屏幕，并且没有标题栏（WS_CAPTION）。
+    最大化窗口不算：它还留着标题栏，看网页、读文档时窗口经常是
+    最大化的，那种情况人走开也该算空闲。只有浏览器按 F11、视频播放器
+    全屏、全屏游戏这种去掉标题栏的才算在用。
+    """
+    try:
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            return False
+        left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+        monitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+        info = win32api.GetMonitorInfo(monitor)
+        mleft, mtop, mright, mbottom = info["Monitor"]
+        if left > mleft or top > mtop or right < mright or bottom < mbottom:
+            return False
+        style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
+        if style & win32con.WS_CAPTION:
+            return False
+        return True
+    except Exception:
+        return False
+
+
+_audio_meter = None  # 缓存的输出设备峰值表，避免每秒都重新激活 COM 对象
+
+
+def _is_audio_playing():
+    """系统现在有没有声音在放。
+
+    读默认输出设备的峰值（IAudioMeterInformation），峰值 > 0.001
+    就认为在放。pycaw 没装、或取不到设备时返回 False，
+    只是音频这条信号不启用，不影响全屏检测和原来的空闲逻辑。
+    """
+    if not _PYCAW_AVAILABLE:
+        return False
+    global _audio_meter
+    try:
+        if _audio_meter is None:
+            speakers = AudioUtilities.GetSpeakers()
+            iface = speakers.Activate(
+                IAudioMeterInformation._iid_, CLSCTX_ALL, None
+            )
+            _audio_meter = iface.QueryInterface(IAudioMeterInformation)
+        return _audio_meter.GetPeakValue() > 0.001
+    except Exception:
+        _audio_meter = None
+        return False
+
+
+def _is_media_active():
+    """用户是不是在「看东西」：前台真全屏，或正在放声音。"""
+    return _is_foreground_fullscreen() or _is_audio_playing()
+
+
+def _media_aware_active_end(now, idle_seconds, idle_threshold, last_media_active):
+    """算出「真实使用」这一段该截止到哪里。
+
+    平时就是 _active_time_cutoff：最后一次操作 + 阈值。
+    但如果中间一直在放视频 / 全屏，真实使用的结束时间应该是
+    「最后一次检测到媒体活动」的时刻，不能往回砍到最后一次操作。
+    否则看完 2 小时直播、视频一停，空闲段会从 2 小时前开始算，
+    和已经记下的直播时间重叠。
+    """
+    end = _active_time_cutoff(now, idle_seconds, idle_threshold)
+    if last_media_active is not None:
+        end = max(end, last_media_active)
+    return end
+
+
 # ── 忽略的系统进程 ────────────────────────────────────────────
 # 这些是 Windows 的界面外壳进程，它们本身没有使用价值，但经常会短暂地
 # 变成前台窗口（比如按开始菜单、切换输入法），会把真实使用的应用数据切碎。
@@ -123,6 +214,7 @@ class WindowMonitor:
 
         self._was_idle = False   # 上一轮采样时是否处于空闲状态（用于检测状态切换）
         # 注意：self._idle_start 只在进入空闲时才赋值，所以这里不初始化
+        self._last_media_active = None  # 上次检测到媒体活动（全屏/声音）的时间戳
 
         # 内存缓冲区，定期 flush 到 DB
         # 每记一段就写一次数据库太频繁（每秒一次写盘），先攒在内存列表里，
@@ -183,7 +275,9 @@ class WindowMonitor:
             # 那段时间也算进去。
             idle_secs = _get_idle_seconds()
             self._flush_current(
-                _active_time_cutoff(now, idle_secs, self.idle_threshold)
+                _media_aware_active_end(
+                    now, idle_secs, self.idle_threshold, self._last_media_active
+                )
             )
         self._flush_to_db()
 
@@ -201,7 +295,10 @@ class WindowMonitor:
             else:
                 idle_secs = _get_idle_seconds()
                 self._flush_current(
-                    _active_time_cutoff(now, idle_secs, self.idle_threshold)
+                    _media_aware_active_end(
+                        now, idle_secs, self.idle_threshold,
+                        self._last_media_active,
+                    )
                 )
             self._flush_to_db()
             self._paused = True
@@ -292,8 +389,8 @@ class WindowMonitor:
             if duration >= 0.5:
                 # 数据库里存 ISO 格式字符串（如 2026-09-22T13:05:00），
                 # 好处是可读、且能直接按字符串排序比较
-                start_iso = datetime.fromtimestamp(self._last_start).isoformat()
-                end_iso = datetime.fromtimestamp(end_time).isoformat()
+                start_iso = beijing_from_timestamp(self._last_start).isoformat()
+                end_iso = beijing_from_timestamp(end_time).isoformat()
                 ignored = get_ignored_apps()
                 # 用户手动加入忽略名单的应用也跳过
                 if self._last_app.lower() not in ignored:
@@ -315,8 +412,8 @@ class WindowMonitor:
         """
         duration = idle_end - idle_start
         if duration >= 0.5:
-            start_iso = datetime.fromtimestamp(idle_start).isoformat()
-            end_iso = datetime.fromtimestamp(idle_end).isoformat()
+            start_iso = beijing_from_timestamp(idle_start).isoformat()
+            end_iso = beijing_from_timestamp(idle_end).isoformat()
             self._add_to_buffer({
                 # 空闲时前台窗口可能还停在某个应用上，就记成那个应用；
                 # 实在没有就用 "idle" 占位
@@ -340,20 +437,27 @@ class WindowMonitor:
                 time.sleep(self.poll_interval)
                 continue
 
+            now = time.time()
+            media_active = _is_media_active()
+            if media_active:
+                self._last_media_active = now
             idle_secs = _get_idle_seconds()
             idle_threshold = self.idle_threshold
-            is_idle = idle_secs > idle_threshold
-            now = time.time()
+            # 键鼠超时、但正在看东西（全屏 / 有声音）时，不算空闲
+            is_idle = idle_secs > idle_threshold and not media_active
 
             if is_idle and not self._was_idle:
                 # 刚进入 idle（上一秒还好好的，这一秒超时了）
-                # 把当前应用这一段提前收尾，收尾时间用 cutoff 砍掉超出部分
-                active_end = _active_time_cutoff(
-                    now, idle_secs, idle_threshold
+                # 把当前应用这一段提前收尾，收尾时间用 cutoff 砍掉超出部分；
+                # 如果中间一直在放媒体，收尾点取「最后一次媒体活动」，
+                # 不能往回砍到最后一次操作，否则空闲段会和直播时间重叠
+                active_end = _media_aware_active_end(
+                    now, idle_secs, idle_threshold, self._last_media_active
                 )
                 self._flush_current(active_end)
-                self._idle_start = active_end  # 空闲段从「最后一次操作」之后算起
+                self._idle_start = active_end  # 空闲段从「最后一次操作/媒体活动」之后算起
                 self._was_idle = True
+                self._last_media_active = None
 
             elif not is_idle and self._was_idle:
                 # 从 idle 恢复（用户回来了）
@@ -361,6 +465,7 @@ class WindowMonitor:
                 self._was_idle = False
                 self._last_start = now  # 从此刻开始给新的一段计时
                 self._last_hwnd = None  # 强制重新检测窗口
+                self._last_media_active = None
 
             elif not is_idle:
                 # 正常计时

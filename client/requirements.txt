@@ -4,3 +4,4 @@ PySide6
 pywin32
 Pillow
 psutil
+pycaw  # 检测系统是否在出声音（直播/视频时不判空闲）；没装也不影响运行，只是音频这条信号关闭

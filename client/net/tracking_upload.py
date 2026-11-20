@@ -1,5 +1,5 @@
 """Independent opt-in uploads to the configured HTTP(S) server; no token logging."""
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 import json
 import secrets
 import threading
@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 
 from core import config, storage, site_storage, timeline
+from core.timeutil import beijing_now, beijing_today
 
 _lock = threading.Lock()
 MAX_DAYS_PER_REQUEST = 7
@@ -95,7 +96,7 @@ def run_once(force=False):
             for kind in ("web", "timeline"):
                 storage.set_setting(f"{kind}_upload_watermark", "")
             storage.set_setting("tracking_server_url", config.base_url())
-        today = date.today()
+        today = beijing_today()
         results = {}
         try:
             yesterday = today - timedelta(days=1)
@@ -156,7 +157,7 @@ def run_once(force=False):
                         storage.set_setting("web_intervals_backfill_v1", "1")
                     else:
                         storage.set_setting("app_intervals_backfill_v1", "1")
-                storage.set_setting(f"{kind}_upload_last_success", datetime.now().isoformat(timespec="seconds"))
+                storage.set_setting(f"{kind}_upload_last_success", beijing_now().isoformat(timespec="seconds"))
                 results[kind] = "ok"
             except (UploadFailure, ValueError) as exc:
                 results[kind] = str(exc)

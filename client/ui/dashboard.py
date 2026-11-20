@@ -21,6 +21,7 @@
 import os
 import threading
 from datetime import date, timedelta, datetime
+from core.timeutil import beijing_now, beijing_today
 
 # PySide6 是 Qt 的官方 Python 绑定。QtWidgets 里装的是「看得见的控件」：
 # QWidget 是所有可视控件的基类（本文件的好几个自定义图表都继承它），
@@ -768,7 +769,7 @@ class _HourlyChart(QWidget):
             self._bar_rects.append((x, y_top, bar_w, bar_h))
 
             # 柱子：当前所在小时用主题色，其余小时用浅灰
-            is_now = i == datetime.now().hour
+            is_now = i == beijing_now().hour
             if val > 0:
                 color = QColor(ACCENT if is_now else CHART_BG)
                 p.setBrush(color)
@@ -1277,7 +1278,7 @@ class Dashboard(QWidget):
         self.monitor = monitor
         self._current_tab = "daily"     # 当前标签页：daily / weekly / settings
         self._icon_cache = {}           # 预留的图标缓存字段（目前未使用）
-        self._view_date = date.today()  # 当前查看的日期，可左右翻页
+        self._view_date = beijing_today()  # 当前查看的日期，可左右翻页
         self._drag_pos = None           # 拖窗口时记录「鼠标 - 窗口左上角」的偏移
 
         # 后台上传/探活用的执行器（见 ui/bgworker.py）。必须在这里建好并连上
@@ -2445,7 +2446,7 @@ class Dashboard(QWidget):
 
     def _update_clock(self):
         """刷新标题栏上的时钟文字。由 QTimer 每秒调用一次。"""
-        now = datetime.now()
+        now = beijing_now()
         # strftime 是「时间 → 字符串」的格式化函数：%H 时、%M 分、%S 秒
         self.lbl_clock.setText(now.strftime("%H:%M:%S"))
 
@@ -2494,7 +2495,7 @@ class Dashboard(QWidget):
         """
         self._current_tab = tab
         # 每次切页都回到今天，避免上次翻到几天前后再进来看到的是旧日期
-        self._view_date = date.today()
+        self._view_date = beijing_today()
         # 选中态 / 未选中态两套样式，待会儿按标签名选用
         active_style = (
             f"QPushButton{{background:{ACCENT};color:white;border:none;"
@@ -2548,7 +2549,7 @@ class Dashboard(QWidget):
 
     def _next_period(self):
         """点右箭头：往后看一天/一周，但不会越过今天（未来没有数据）。"""
-        today = date.today()
+        today = beijing_today()
         if self._current_tab == "daily":
             new_date = self._view_date + timedelta(days=1)
             if new_date <= today:      # 超过今天就原样不动
@@ -2564,7 +2565,7 @@ class Dashboard(QWidget):
 
         已经翻到「今天/本周」时右箭头置灰并禁用，防止用户翻到没有数据的未来。
         """
-        today = date.today()
+        today = beijing_today()
         is_today = self._view_date >= today
         if self._current_tab == "weekly":
             # 本周页：只要「当前查看的这一周末尾」还没到今天，就还能往后翻
@@ -2609,7 +2610,7 @@ class Dashboard(QWidget):
         hourly = get_hourly_stats(target)     # 24 个小时各自的秒数
 
         d = self._view_date
-        is_today = d == date.today()
+        is_today = d == beijing_today()
         # 看的是今天就写「今日」，否则写星期几（_CN_DAY 取值，兜底空串）
         self.lbl_day.setText("今日" if is_today else _CN_DAY.get(d.weekday(), ""))
         self.lbl_date.setText(f"{d.year}年{d.month}月{d.day}日")
@@ -2634,7 +2635,7 @@ class Dashboard(QWidget):
         # 变量 d（date 对象）只是恰好重名，作用域上互不影响。
         week_total = sum(d["total_seconds"] for d in week_stats)
 
-        is_this_week = week_end >= date.today()
+        is_this_week = week_end >= beijing_today()
         # 无论是不是本周都显示「本周」：本页展示的始终是「以选中日期结尾的
         # 那七天」，用「本周」比「上周」之类的说法更不容易歧义。
         self.lbl_day.setText("本周" if is_this_week else "本周")

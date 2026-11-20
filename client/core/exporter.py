@@ -23,6 +23,7 @@ import os
 import threading
 import time
 from datetime import date, timedelta
+from core.timeutil import beijing_today
 
 from core.storage import (
     format_duration,
@@ -197,10 +198,10 @@ def export_pending(today=None):
     因此「今天」的文件每次都会被刷新成最新状态，不用担心今天是半截数据。
 
     参数：
-        today：覆盖「今天」是哪天，默认取系统当天。传参主要是为了方便测试。
+        today：覆盖「今天」是哪天，默认取北京时间当天。传参主要是为了方便测试。
     返回：写出的文件路径列表（没有数据的周期会被跳过）。
     """
-    today = today or date.today()
+    today = today or beijing_today()
     available = get_available_dates()   # ISO 字符串，从新到旧
     if not available:
         return []

@@ -43,9 +43,10 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from core import config
+from core.timeutil import beijing_now, beijing_today
 from core.storage import (
     get_available_dates,
     get_setting,
@@ -215,7 +216,7 @@ def pending_days(today=None):
     「关于上传哪天」）。只返回本地确实有数据的天 —— 没数据的天不传，
     因为服务端那边「传了但没有应用」会被当成异常跳过。
     """
-    today = today or date.today()
+    today = today or beijing_today()
     available = get_available_dates()
     if not available:
         return []
@@ -658,7 +659,7 @@ def upload_status_lines():
 
 
 def _now_str():
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    return beijing_now().strftime("%Y-%m-%d %H:%M")
 
 
 # ── 后台定时器 ────────────────────────────────────────────────
@@ -701,14 +702,14 @@ class UploadScheduler:
     def _loop(self):
         while self._running:
             self.run_once()
-            day_started = date.today()
+            day_started = beijing_today()
             # 把长等待切成 1 秒一段，这样 stop() 能较快生效
             slept = 0.0
             while self._running and slept < self.interval:
                 time.sleep(1.0)
                 slept += 1.0
                 # Force a day-end upload after the monitor's 10-second DB checkpoint.
-                now = datetime.now()
+                now = beijing_now()
                 if now.date() != day_started and (now.minute >= 1 or now.second >= 30 or now.hour > 0):
                     break
 

@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from core import storage
+from core.timeutil import beijing_from_timestamp, beijing_now, beijing_today
 from browser.sanitizer import normalize_host
 
 
@@ -30,7 +31,7 @@ def record_segment(item, intervals):
     """Commit receipt and trusted intersections together; callers ACK only after return."""
     with storage._lock, storage._get_conn() as conn:
         if not conn.execute("INSERT OR IGNORE INTO site_event_receipts VALUES (?, ?)",
-                            (item["event_id"], datetime.now().isoformat())).rowcount:
+                            (item["event_id"], beijing_now().isoformat())).rowcount:
             return False
         if conn.execute("SELECT 1 FROM ignored_sites WHERE host=?", (item["host"],)).fetchone():
             return True
@@ -41,7 +42,7 @@ def record_segment(item, intervals):
             start = max(start, cutoff)
             if start >= end:
                 continue
-            cursor, finish = datetime.fromtimestamp(start), datetime.fromtimestamp(end)
+            cursor, finish = beijing_from_timestamp(start), beijing_from_timestamp(end)
             while cursor < finish:
                 stop = min(finish, datetime.combine(cursor.date() + timedelta(days=1), datetime.min.time()))
                 seconds = (stop - cursor).total_seconds()
@@ -58,7 +59,7 @@ def record_segment(item, intervals):
                 cursor = stop
         # Events older than the protocol replay window can never be accepted again.
         conn.execute("DELETE FROM site_event_receipts WHERE received_at < ?",
-                     ((datetime.now() - timedelta(days=1)).isoformat(),))
+                     ((beijing_now() - timedelta(days=1)).isoformat(),))
     return True
 
 
@@ -70,7 +71,7 @@ def get_site_summary_range(start, end):
 
 
 def get_site_stats(day=None, start=None):
-    day = str(day or date.today())
+    day = str(day or beijing_today())
     with storage._get_conn() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT host,MAX(display_name) AS display_name,SUM(total_seconds) AS total_seconds "
@@ -79,7 +80,7 @@ def get_site_stats(day=None, start=None):
 
 
 def get_week_site_stats(end_date=None):
-    end = date.fromisoformat(str(end_date or date.today()))
+    end = date.fromisoformat(str(end_date or beijing_today()))
     return get_site_stats(end, end - timedelta(days=6))
 
 
@@ -188,7 +189,7 @@ def export_pending():
         return []
     from core.paths import data_dir
     import calendar
-    today = date.today()
+    today = beijing_today()
     watermark = storage.get_setting("site_export_watermark", "")
     with storage._get_conn() as conn:
         days = [date.fromisoformat(r[0]) for r in conn.execute("SELECT DISTINCT date FROM site_usage ORDER BY date")
