@@ -304,6 +304,97 @@ class MediaActivityTests(unittest.TestCase):
         self.assertLessEqual(monitor._idle_start, 1010.0)
 
 
+class SuspendTests(unittest.TestCase):
+    """合盖睡眠 / 休眠：挂起的时间不能算成使用时长。
+
+    背景：合上笔记本盖子后系统睡眠，监控线程被冻住，墙钟却在走。
+    空闲判定用的是 tick 计数，睡眠时 tick 不走，醒来后 idle_secs
+    看起来很小，程序会以为人一直在用电脑，把整段睡眠时间都算到
+    合盖前那个应用（常常是文件资源管理器）头上。
+    修法：看墙钟，两轮循环之间隔了远超 1 秒就说明挂起过，
+    把当前一段截到挂起前为止，中间记为空闲。
+    """
+
+    @patch("system.monitor.record_fragments_batch")
+    @patch("system.monitor.get_ignored_apps", return_value=set())
+    @patch("system.monitor.get_setting", return_value="300")
+    @patch("system.monitor._get_idle_seconds", return_value=5.0)
+    def test_lid_closed_sleep_is_not_counted_as_usage(
+        self,
+        _idle_seconds,
+        _setting,
+        _ignored_apps,
+        record_batch,
+    ):
+        """核心场景：合盖睡 3 小时，醒来后睡眠时间不算进文件资源管理器。
+
+        1000 秒时在用文件资源管理器，合盖睡了 3 小时（10800 秒）再醒。
+        正确结果：文件资源管理器那段只记到合盖前（约 1002 秒），
+        中间 3 小时记为空闲；没有任何一段「真实使用」会长到几千秒。
+        """
+        monitor = WindowMonitor()
+        monitor._running = True
+        monitor._last_app = "explorer.exe"
+        monitor._last_title = "文件资源管理器"
+        monitor._last_exe = "C:/Windows/explorer.exe"
+        monitor._last_start = 1000.0
+        monitor._last_hwnd = 111
+        monitor._last_flush = 1000.0
+        monitor._was_idle = False
+        monitor._last_loop_wall = 1000.0
+
+        clock = {"base": 1000.0, "offset": 0.0}
+        sleep_calls = {"n": 0}
+
+        def fake_time():
+            clock["offset"] += 1.0
+            return clock["base"] + clock["offset"]
+
+        def fake_sleep(_s):
+            sleep_calls["n"] += 1
+            if sleep_calls["n"] == 2:
+                # 第二轮之后，系统睡了 3 小时才醒
+                clock["base"] += 10800.0
+                clock["offset"] = 0.0
+            if sleep_calls["n"] >= 5:
+                monitor._running = False
+
+        with patch(
+            "system.monitor._is_media_active", return_value=False
+        ), patch.object(
+            WindowMonitor,
+            "_get_active_window_info",
+            return_value=(111, "explorer.exe", "文件资源管理器", "C:/Windows/explorer.exe"),
+        ), patch(
+            "system.monitor.time"
+        ) as mock_time:
+            mock_time.time.side_effect = fake_time
+            mock_time.sleep.side_effect = fake_sleep
+            monitor._loop()
+
+        # 收集所有记下来的片段：已写库的（mock 收到的）+ 还在缓冲区的
+        fragments = list(monitor._buffer)
+        for call in record_batch.call_args_list:
+            fragments.extend(call.args[0])
+
+        active = [f for f in fragments if not f["is_idle"]]
+        idle = [f for f in fragments if f["is_idle"]]
+
+        # 没有任何一段「真实使用」会长到几千秒（睡眠没被算进去）
+        for f in active:
+            self.assertLess(
+                f["duration"], 1000.0,
+                f"真实使用片段不该这么长：{f}",
+            )
+        # 文件资源管理器那段只记到合盖前，约几秒
+        explorer = [f for f in active if f["app_name"] == "explorer.exe"]
+        self.assertTrue(explorer, "应该有一段文件资源管理器的使用记录")
+        self.assertLess(max(f["duration"] for f in explorer), 100.0)
+        # 睡眠那 3 小时记成了一段空闲
+        self.assertTrue(idle, "睡眠时段应该记成一段空闲")
+        self.assertGreater(max(f["duration"] for f in idle), 10000.0)
+
+
 if __name__ == "__main__":
     # 直接运行本文件时执行测试（也可以从项目根目录用 unittest discover 跑）
     unittest.main()

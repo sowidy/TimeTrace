@@ -180,6 +180,16 @@ def _media_aware_active_end(now, idle_seconds, idle_threshold, last_media_active
     return end
 
 
+# ── 挂起（睡眠 / 休眠）检测 ───────────────────────────────────
+# 合上笔记本盖子后系统会睡眠：这段时间监控线程被冻住，墙钟却在走。
+# 偏偏空闲判定用的是 tick 计数（GetLastInputInfo），睡眠时 tick 不走，
+# 所以醒来后 idle_secs 看起来很小，程序以为人一直在用电脑，
+# 于是把整段睡眠时间都算到合盖前那个应用（常常是文件资源管理器）头上。
+# 办法是看墙钟：如果两轮循环之间隔了远超 1 秒，就说明中间挂起过。
+# 正常循环每 1 秒一轮，系统再卡也不会差 10 秒；真正的睡眠都是分钟起步。
+_SUSPEND_GAP_SECONDS = 10.0
+
+
 # ── 忽略的系统进程 ────────────────────────────────────────────
 # 这些是 Windows 的界面外壳进程，它们本身没有使用价值，但经常会短暂地
 # 变成前台窗口（比如按开始菜单、切换输入法），会把真实使用的应用数据切碎。
@@ -215,6 +225,7 @@ class WindowMonitor:
         self._was_idle = False   # 上一轮采样时是否处于空闲状态（用于检测状态切换）
         # 注意：self._idle_start 只在进入空闲时才赋值，所以这里不初始化
         self._last_media_active = None  # 上次检测到媒体活动（全屏/声音）的时间戳
+        self._last_loop_wall = None  # 上一轮循环的墙钟时间，用于检测系统挂起
 
         # 内存缓冲区，定期 flush 到 DB
         # 每记一段就写一次数据库太频繁（每秒一次写盘），先攒在内存列表里，
@@ -251,6 +262,7 @@ class WindowMonitor:
         """启动后台监控线程。"""
         self._running = True
         self._last_start = time.time()
+        self._last_loop_wall = time.time()
         # daemon=True：主程序退出时这个线程会被自动结束，不会拖住程序不放
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -310,6 +322,8 @@ class WindowMonitor:
             self._paused = False
             # 重置起点，让暂停期间的时间不落入任何一段记录
             self._last_start = time.time()
+            # 同步更新挂起检测的基准，否则暂停这段时间会被误判成系统挂起
+            self._last_loop_wall = time.time()
             self._publish_activity()
 
     # ── 前台窗口检测（GetForegroundWindow） ─────────────────────
@@ -438,6 +452,24 @@ class WindowMonitor:
                 continue
 
             now = time.time()
+
+            # ── 挂起检测：合盖睡眠 / 休眠 ──
+            # 如果两轮循环之间墙钟跳了远超 1 秒，说明系统中间挂起过。
+            # 这时要把当前这一段截到挂起前最后一轮为止，中间这段记为空闲，
+            # 否则整段睡眠时间都会被算成合盖前那个应用的使用时长。
+            if self._last_loop_wall is not None:
+                gap = now - self._last_loop_wall
+                if gap > _SUSPEND_GAP_SECONDS:
+                    if not self._was_idle:
+                        self._flush_current(self._last_loop_wall)
+                        self._idle_start = self._last_loop_wall
+                        self._was_idle = True
+                    # 重新起段：挂起这段时间不属于任何一段使用
+                    self._last_start = now
+                    self._last_hwnd = None
+                    self._last_media_active = None
+            self._last_loop_wall = now
+
             media_active = _is_media_active()
             if media_active:
                 self._last_media_active = now
