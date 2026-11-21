@@ -190,6 +190,23 @@ def _media_aware_active_end(now, idle_seconds, idle_threshold, last_media_active
 _SUSPEND_GAP_SECONDS = 10.0
 
 
+# ── 桌面窗口 ──────────────────────────────────────────────────
+# Windows 桌面本身就是 explorer.exe 的一个窗口（类名 Progman / WorkerW）。
+# 只开着桌面、什么窗口都没打开时，前台窗口就是它，之前会被误记成
+# 「文件资源管理器」。真正的资源管理器窗口类名是 CabinetWClass /
+# ExploreWClass，所以按类名区分：桌面不算任何应用。
+_DESKTOP_CLASSES = {"progman", "workerw"}
+
+
+def _is_desktop_window(hwnd):
+    """这个前台窗口是不是桌面（而不是真正的资源管理器窗口）。"""
+    try:
+        cls = win32gui.GetClassName(hwnd)
+    except Exception:
+        return False
+    return bool(cls) and cls.lower() in _DESKTOP_CLASSES
+
+
 # ── 忽略的系统进程 ────────────────────────────────────────────
 # 这些是 Windows 的界面外壳进程，它们本身没有使用价值，但经常会短暂地
 # 变成前台窗口（比如按开始菜单、切换输入法），会把真实使用的应用数据切碎。
@@ -338,6 +355,11 @@ class WindowMonitor:
         hwnd = win32gui.GetForegroundWindow()
         if not hwnd or not win32gui.IsWindowVisible(hwnd):
             # 句柄为空，或窗口不可见（比如最小化到托盘的程序）都跳过
+            return None, None, None, None
+
+        if _is_desktop_window(hwnd):
+            # 只开着桌面时前台就是桌面窗口，它属于 explorer.exe，
+            # 但用户并没有在用文件资源管理器，不能记成它
             return None, None, None, None
 
         title = win32gui.GetWindowText(hwnd)

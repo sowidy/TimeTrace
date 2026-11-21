@@ -16,6 +16,7 @@ from system.monitor import (
     _active_time_cutoff,
     _idle_seconds_from_ticks,
     _is_audio_playing,
+    _is_desktop_window,
     _is_foreground_fullscreen,
     _is_media_active,
     _media_aware_active_end,
@@ -393,6 +394,54 @@ class SuspendTests(unittest.TestCase):
         # 睡眠那 3 小时记成了一段空闲
         self.assertTrue(idle, "睡眠时段应该记成一段空闲")
         self.assertGreater(max(f["duration"] for f in idle), 10000.0)
+
+
+class DesktopWindowTests(unittest.TestCase):
+    """桌面窗口：只开着桌面时不能记成文件资源管理器。
+
+    背景：Windows 桌面本身就是 explorer.exe 的窗口（类名 Progman /
+    WorkerW）。只开着桌面、什么窗口都没打开时，前台窗口就是它，
+    之前会被误记成「文件资源管理器」。真正的资源管理器窗口类名是
+    CabinetWClass / ExploreWClass，要按类名区分。
+    """
+
+    def _gui_with_class(self, cls):
+        gui = MagicMock()
+        gui.GetForegroundWindow.return_value = 1234
+        gui.IsWindowVisible.return_value = True
+        gui.GetClassName.return_value = cls
+        return gui
+
+    def test_progman_is_desktop(self):
+        """Progman（主桌面窗口）-> 是桌面。"""
+        gui = self._gui_with_class("Progman")
+        with patch("system.monitor.win32gui", gui):
+            self.assertTrue(_is_desktop_window(1234))
+
+    def test_workerw_is_desktop(self):
+        """WorkerW（桌面图标窗口）-> 是桌面。"""
+        gui = self._gui_with_class("WorkerW")
+        with patch("system.monitor.win32gui", gui):
+            self.assertTrue(_is_desktop_window(1234))
+
+    def test_cabinet_window_is_not_desktop(self):
+        """CabinetWClass（真正的资源管理器窗口）-> 不是桌面。"""
+        gui = self._gui_with_class("CabinetWClass")
+        with patch("system.monitor.win32gui", gui):
+            self.assertFalse(_is_desktop_window(1234))
+
+    def test_desktop_foreground_returns_no_app(self):
+        """前台是桌面时，_get_active_window_info 返回四个 None。
+
+        只开着桌面时不能记成任何应用，更不能记成文件资源管理器。
+        """
+        gui = self._gui_with_class("Progman")
+        monitor = WindowMonitor()
+        with patch("system.monitor.win32gui", gui):
+            self.assertEqual(
+                monitor._get_active_window_info(),
+                (None, None, None, None),
+            )
 
 
 if __name__ == "__main__":
